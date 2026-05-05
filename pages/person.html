@@ -1,0 +1,403 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Персоны — Charitor.ai</title>
+  <link rel="stylesheet" href="/css/general.css" />
+  <link rel="stylesheet" href="/css/person.css" />
+</head>
+<body>
+  <header class="topbar">
+    <a href="/pages/main.html" class="brand">Charitor.ai</a>
+
+    <div class="search-box">
+      <input id="searchPersonaInput" type="text" placeholder="Поиск персонажей..." />
+      <button type="button">⌕</button>
+    </div>
+
+    <div class="topbar-right">
+      <a href="/pages/history.html" class="top-icon">💬</a>
+      <a href="/pages/profile.html" class="profile-mini">
+        <img id="topAvatar" src="/img/icon.svg" alt="avatar" />
+      </a>
+    </div>
+  </header>
+
+  <main class="person-page">
+    <div class="person-head">
+      <div>
+        <h1>Мои персоны</h1>
+        <p>Выбери персону, от лица которой будешь общаться с ботами.</p>
+      </div>
+
+      <div class="person-count" id="personaCounter">0 персон</div>
+    </div>
+
+    <div class="person-controls">
+      <button class="tab-btn active" data-filter="all">Все персоны</button>
+    </div>
+
+    <section class="persona-grid" id="personaGrid"></section>
+  </main>
+
+  <div class="modal-overlay" id="personaModal">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h2 id="modalTitle">Создать персону</h2>
+        <button type="button" id="closeModalBtn">×</button>
+      </div>
+
+    <div class="modal-body">
+  <div class="modal-grid">
+    <div class="avatar-column">
+      <label>Аватар</label>
+
+      <label class="persona-upload">
+        <input id="avatarInput" type="file" accept="image/*" hidden />
+        <div class="upload-empty" id="uploadEmpty">
+          <div class="camera-icon">▣</div>
+          <p>Перетащите изображение сюда или выберите его, щёлкнув по нему.</p>
+        </div>
+        <img id="avatarPreview" src="" alt="avatar" />
+      </label>
+    </div>
+
+    <div class="form-column">
+      <label>Имя *</label>
+      <input id="personaName" type="text" placeholder="Введите имя человека" />
+
+<label>Местоимения</label>
+<select id="personaRole">
+  <option value="">Местоимения</option>
+  <option value="Она/Её">Она/Её</option>
+  <option value="Он/Его">Он/Его</option>
+</select>
+
+    </div>
+  </div>
+
+  <div class="description-block">
+    <label>Описание *</label>
+    <textarea
+      id="personaDescription"
+      placeholder="Опишите внешность, характер, биографию персонажа..."
+    ></textarea>
+  </div>
+</div>
+
+      <div class="modal-footer">
+        <button class="delete-btn" id="deletePersonaBtn" type="button">Удалить</button>
+
+        <div>
+          <button class="cancel-btn" id="cancelBtn" type="button">Отмена</button>
+          <button class="save-btn" id="savePersonaBtn" type="button">Сохранить</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const API_URL = "http://localhost:3000";
+    const brandLink = document.querySelector(".brand");
+    if (brandLink) {
+      brandLink.href = localStorage.getItem("user")
+        ? "/pages/main.html"
+        : "/pages/index.html";
+    }
+
+    const savedUser = JSON.parse(localStorage.getItem("user") || "null");
+
+    if (!savedUser) {
+      window.location.href = "/pages/autorization.html";
+    }
+
+    const topAvatar = document.getElementById("topAvatar");
+    const searchPersonaInput = document.getElementById("searchPersonaInput");
+    const personaGrid = document.getElementById("personaGrid");
+    const personaCounter = document.getElementById("personaCounter");
+
+    const personaModal = document.getElementById("personaModal");
+    const modalTitle = document.getElementById("modalTitle");
+    const closeModalBtn = document.getElementById("closeModalBtn");
+    const cancelBtn = document.getElementById("cancelBtn");
+
+    const avatarPreview = document.getElementById("avatarPreview");
+    const avatarInput = document.getElementById("avatarInput");
+    const personaName = document.getElementById("personaName");
+    const personaRole = document.getElementById("personaRole");
+    const personaDescription = document.getElementById("personaDescription");
+
+    const savePersonaBtn = document.getElementById("savePersonaBtn");
+    const deletePersonaBtn = document.getElementById("deletePersonaBtn");
+
+    let personas = [];
+    let currentEditId = null;
+    let avatarValue = "";
+    let currentFilter = "all";
+
+    const savedAvatar =
+      localStorage.getItem(`profileAvatar_${savedUser.id}`) ||
+      savedUser.avatar_url ||
+      "";
+
+    if (savedAvatar) topAvatar.src = savedAvatar;
+
+    function escapeHtml(text) {
+      const div = document.createElement("div");
+      div.textContent = text || "";
+      return div.innerHTML;
+    }
+
+    function updateCounter(count) {
+      personaCounter.textContent = `${count} персон`;
+    }
+
+    function openModal(persona = null) {
+  personaModal.classList.add("active");
+  document.body.classList.add("modal-open");
+
+  const uploadEmpty = document.getElementById("uploadEmpty");
+
+  if (persona) {
+    currentEditId = persona.id;
+    modalTitle.textContent = "Редактировать персону";
+    deletePersonaBtn.style.display = "inline-flex";
+
+    personaName.value = persona.name || "";
+    personaRole.value = persona.role || "";
+    personaDescription.value = persona.description || "";
+
+    avatarValue = persona.avatar_url || "";
+    avatarPreview.src = avatarValue || "";
+
+    if (avatarValue) {
+      avatarPreview.style.display = "block";
+      uploadEmpty.style.display = "none";
+    } else {
+      avatarPreview.style.display = "none";
+      uploadEmpty.style.display = "block";
+    }
+
+  } else {
+    currentEditId = null;
+    modalTitle.textContent = "Создать персону";
+    deletePersonaBtn.style.display = "none";
+
+    personaName.value = "";
+    personaRole.value = "";
+    personaDescription.value = "";
+
+    avatarValue = "";
+    avatarPreview.src = "";
+
+    avatarPreview.style.display = "none";
+    uploadEmpty.style.display = "block";
+  }
+}
+    function closeModal() {
+      personaModal.classList.remove("active");
+      document.body.classList.remove("modal-open");
+    }
+
+    function renderPersonas() {
+      const query = searchPersonaInput.value.trim().toLowerCase();
+      let filtered = [...personas];
+
+      if (currentFilter === "filled") {
+        filtered = filtered.filter((item) => String(item.description || "").trim());
+      }
+
+      if (query) {
+        filtered = filtered.filter((item) =>
+          [item.name, item.role, item.description]
+            .join(" ")
+            .toLowerCase()
+            .includes(query)
+        );
+      }
+
+      personaGrid.innerHTML = "";
+      updateCounter(filtered.length);
+
+      filtered.forEach((persona) => {
+        const card = document.createElement("article");
+        card.className = "persona-card";
+
+        card.innerHTML = `
+          <div class="persona-card-top">
+            <h3>${escapeHtml(persona.name || "Без имени")}</h3>
+            <button class="edit-persona-btn" type="button" data-id="${persona.id}">✎</button>
+          </div>
+
+          <div class="persona-image">
+            <img src="${persona.avatar_url || "/img/icon.svg"}" alt="persona" />
+          </div>
+
+          <div class="persona-info">
+            <span class="persona-tag">${escapeHtml(persona.role || "Без роли")}</span>
+
+            <p class="persona-desc">
+              ${escapeHtml(persona.description || "Описание отсутствует")}
+            </p>
+          </div>
+        `;
+
+        personaGrid.appendChild(card);
+      });
+
+      const createCard = document.createElement("button");
+      createCard.className = "create-card";
+      createCard.type = "button";
+      createCard.innerHTML = `
+        <span class="plus-circle">+</span>
+        <span>Создать персону</span>
+      `;
+      createCard.addEventListener("click", () => openModal());
+      personaGrid.appendChild(createCard);
+
+      document.querySelectorAll(".edit-persona-btn").forEach((btn) => {
+        btn.addEventListener("click", () => {
+          const id = Number(btn.dataset.id);
+          const persona = personas.find((item) => Number(item.id) === id);
+          openModal(persona);
+        });
+      });
+    }
+
+    async function loadPersonas() {
+      try {
+        const response = await fetch(`${API_URL}/personas/${savedUser.id}`);
+
+        if (!response.ok) {
+          throw new Error("Ошибка загрузки персон");
+        }
+
+        personas = await response.json();
+        renderPersonas();
+      } catch (error) {
+        console.error(error);
+        personas = [];
+        renderPersonas();
+      }
+    }
+
+    async function savePersona() {
+      const name = personaName.value.trim();
+      const role = personaRole.value.trim();
+      const description = personaDescription.value.trim();
+
+      if (!name || !description) {
+        alert("Заполните имя и описание персоны");
+        return;
+      }
+
+      const payload = {
+        user_id: savedUser.id,
+        name,
+        role,
+        description,
+        avatar_url: avatarValue,
+        is_default: 0
+      };
+
+      try {
+        let response;
+
+        if (currentEditId) {
+          response = await fetch(`${API_URL}/persona/${currentEditId}`, {
+            method: "PUT",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(payload)
+          });
+        } else {
+          response = await fetch(`${API_URL}/persona`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(payload)
+          });
+        }
+
+        const data = await response.json();
+
+        if (!response.ok) {
+          alert(data.message || "Ошибка сохранения");
+          return;
+        }
+
+        closeModal();
+        await loadPersonas();
+      } catch (error) {
+        console.error(error);
+        alert("Ошибка соединения с сервером");
+      }
+    }
+
+    async function deletePersona() {
+      if (!currentEditId) return;
+      if (!confirm("Удалить эту персону?")) return;
+
+      try {
+        const response = await fetch(`${API_URL}/persona/${currentEditId}`, {
+          method: "DELETE",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ user_id: savedUser.id })
+        });
+
+        const data = await response.json();
+
+        if (!response.ok) {
+          alert(data.message || "Ошибка удаления");
+          return;
+        }
+
+        closeModal();
+        await loadPersonas();
+      } catch (error) {
+        console.error(error);
+        alert("Ошибка удаления");
+      }
+    }
+
+    avatarInput.addEventListener("change", () => {
+  const file = avatarInput.files[0];
+  if (!file) return;
+
+  const reader = new FileReader();
+
+  reader.onload = (event) => {
+    avatarValue = event.target.result;
+    avatarPreview.src = avatarValue;
+    avatarPreview.style.display = "block";
+    document.getElementById("uploadEmpty").style.display = "none";
+  };
+
+  reader.readAsDataURL(file);
+});
+
+    closeModalBtn.addEventListener("click", closeModal);
+    cancelBtn.addEventListener("click", closeModal);
+    savePersonaBtn.addEventListener("click", savePersona);
+    deletePersonaBtn.addEventListener("click", deletePersona);
+    searchPersonaInput.addEventListener("input", renderPersonas);
+
+    personaModal.addEventListener("click", (e) => {
+      if (e.target === personaModal) closeModal();
+    });
+
+    document.querySelectorAll(".tab-btn").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        document.querySelectorAll(".tab-btn").forEach((item) => {
+          item.classList.remove("active");
+        });
+
+        btn.classList.add("active");
+        currentFilter = btn.dataset.filter;
+        renderPersonas();
+      });
+    });
+
+    loadPersonas();
+  </script>
+</body>
+</html>

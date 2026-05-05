@@ -1,0 +1,257 @@
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  color: #fff;
+  font-family: Arial, sans-serif;
+}
+
+.history-topbar {
+  position: sticky;
+  top: 0;
+  z-index: 50;
+  display: grid;
+  grid-template-columns: 240px minmax(320px, 620px) 240px;
+  gap: 18px;
+  align-items: center;
+  min-height: 72px;
+  padding: 12px 22px;
+  background: rgba(7, 8, 32, 0.82);
+  border-bottom: 1px solid rgba(180, 150, 255, 0.18);
+  backdrop-filter: blur(14px);
+}
+
+.brand {
+  color: #fff;
+  text-decoration: none;
+  font-size: 28px;
+  font-weight: 900;
+}
+
+.history-search {
+  display: flex;
+  align-items: center;
+  border: 1px solid rgba(157, 121, 255, 0.5);
+  border-radius: 999px;
+  background: rgba(33, 27, 76, 0.78);
+  overflow: hidden;
+}
+
+.history-search input {
+  flex: 1;
+  border: none;
+  outline: none;
+  background: transparent;
+  color: #fff;
+  padding: 13px 16px;
+}
+
+.history-search button {
+  width: 52px;
+  border: none;
+  background: transparent;
+  color: #fff;
+  font-size: 22px;
+  cursor: pointer;
+}
+
+.topbar-actions {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 10px;
+}
+
+.top-btn {
+  min-height: 40px;
+  padding: 0 14px;
+  border-radius: 12px;
+  color: #fff;
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  background: rgba(35, 30, 75, 0.75);
+  border: 1px solid rgba(169, 151, 255, 0.45);
+  font-weight: 800;
+}
+
+.profile-mini img {
+  width: 42px;
+  height: 42px;
+  border-radius: 50%;
+  object-fit: cover;
+}
+
+.history-page {
+  max-width: 1500px;
+  margin: 0 auto;
+  padding: 30px 22px 50px;
+}
+
+.history-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  gap: 22px;
+  margin-bottom: 22px;
+}
+
+.history-head h1 {
+  margin: 0;
+  font-size: 42px;
+}
+
+.history-head p {
+  margin: 8px 0 0;
+  color: #cfc8ee;
+  font-size: 15px;
+}
+
+.history-controls {
+  display: flex;
+  gap: 10px;
+}
+
+.history-controls select,
+.history-controls button {
+  min-height: 44px;
+  border-radius: 12px;
+  border: 1px solid rgba(169, 151, 255, 0.45);
+  background: rgba(35, 30, 75, 0.78);
+  color: #fff;
+  padding: 0 14px;
+  font-weight: 800;
+  outline: none;
+}
+
+.history-controls button {
+  cursor: pointer;
+}
+
+.status-box {
+  border: 1px solid rgba(169, 151, 255, 0.24);
+  border-radius: 16px;
+  background: rgba(20, 18, 70, 0.58);
+  padding: 18px;
+  color: #d8d3f4;
+  margin-bottom: 16px;
+}
+
+.chats-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(360px, 1fr));
+  gap: 18px;
+}
+
+.chat-card {
+  display: grid;
+  grid-template-columns: 150px 1fr;
+  gap: 14px;
+  min-height: 230px;
+  padding: 14px;
+  border-radius: 18px;
+  background: linear-gradient(135deg, rgba(55, 20, 105, 0.92), rgba(30, 22, 70, 0.94));
+  border: 1px solid rgba(180, 110, 255, 0.55);
+  box-shadow: 0 18px 36px rgba(0, 0, 0, 0.24);
+}
+
+.chat-cover {
+  height: 200px;
+  border-radius: 14px;
+  overflow: hidden;
+  background: rgba(20, 20, 40, 0.8);
+}
+
+.chat-cover img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.chat-info {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.chat-info h3 {
+  margin: 0 0 8px;
+  font-size: 18px;
+}
+
+.chat-info p {
+  margin: 0;
+  color: #e7ddff;
+  font-size: 14px;
+  line-height: 1.45;
+  font-style: italic;
+  display: -webkit-box;
+  -webkit-line-clamp: 5;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.chat-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: auto;
+  color: #d8d2ff;
+  font-size: 13px;
+}
+
+.continue-btn {
+  margin-top: 12px;
+  align-self: flex-end;
+  min-width: 150px;
+  text-align: center;
+  color: #fff;
+  text-decoration: none;
+  padding: 11px 16px;
+  border-radius: 12px;
+  background: linear-gradient(135deg, #6b42c8, #8849db);
+  font-weight: 900;
+}
+
+@media (max-width: 1250px) {
+  .chats-grid {
+    grid-template-columns: repeat(2, minmax(320px, 1fr));
+  }
+}
+
+@media (max-width: 900px) {
+  .history-topbar {
+    grid-template-columns: 1fr;
+  }
+
+  .history-head {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .chats-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 560px) {
+  .chat-card {
+    grid-template-columns: 1fr;
+  }
+
+  .chat-cover {
+    height: 260px;
+  }
+
+  .history-controls {
+    width: 100%;
+    flex-direction: column;
+  }
+
+  .history-controls select,
+  .history-controls button {
+    width: 100%;
+  }
+}

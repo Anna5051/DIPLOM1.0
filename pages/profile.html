@@ -1,0 +1,722 @@
+<!doctype html>
+<html lang="ru">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Профиль — Charitor.ai</title>
+    <link rel="stylesheet" href="/css/general.css" />
+    <link rel="stylesheet" href="/css/profile.css" />
+  </head>
+  <body>
+    <header class="topbar">
+      <a href="/pages/main.html" class="brand">Charitor.ai</a>
+
+      <div class="search-box">
+        <input type="text" id="searchInput" placeholder="Поиск персонажей..." />
+        <button type="button" id="searchBtn">⌕</button>
+      </div>
+
+      <div class="topbar-right">
+        <a href="/pages/history.html" class="top-icon">💬</a>
+        <a href="/pages/profile.html" class="profile-mini">
+          <img id="topbarAvatar" src="/img/icon.svg" alt="avatar" />
+        </a>
+      </div>
+    </header>
+
+    <main class="profile-shell">
+      <div class="profile-layout">
+        <section class="profile-main-card">
+          <div class="profile-header">
+            <div class="profile-avatar-block">
+              <img
+                src="/img/icon.svg"
+                alt="avatar"
+                class="profile-avatar"
+                id="profileAvatar"
+              />
+
+              <label for="profileAvatarInput" class="avatar-change-btn">
+                Сменить фото
+              </label>
+              <input
+                type="file"
+                id="profileAvatarInput"
+                accept="image/*"
+                hidden
+              />
+            </div>
+
+            <div class="profile-user-info">
+              <div class="profile-title-row">
+                <div>
+                  <h1>@<span id="username">Hanna</span></h1>
+                  <p class="followers-count">
+                    <span id="followersCount">0</span> followers
+                  </p>
+                  <p class="member-since">
+                    Member Since <span id="memberSince">Aug 19, 2024</span>
+                  </p>
+                </div>
+
+                <button class="edit-btn" id="toggleEditBtn" type="button">
+                  Редактировать профиль
+                </button>
+                <button
+                  class="edit-btn"
+                  id="followAuthorBtn"
+                  type="button"
+                  style="display: none"
+                >
+                  Подписаться
+                </button>
+              </div>
+
+              <div class="profile-bio-preview-card">
+                <div class="profile-bio-title">О себе</div>
+                <div class="profile-description">
+                  <div id="profilePreview">Hi, I'm Hanna.</div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <section class="profile-editor-panel hidden" id="profileEditorPanel">
+            <div class="editor-panel-header">
+              <h2>Редактор профиля</h2>
+              <p>Измените текст профиля и сохраните локально.</p>
+            </div>
+
+            <div class="editor-toolbar">
+              <button type="button" data-command="formatBlock" data-value="p">
+                Paragraph
+              </button>
+              <button type="button" data-command="bold"><b>B</b></button>
+              <button type="button" data-command="italic"><i>I</i></button>
+              <button type="button" data-command="underline"><u>U</u></button>
+              <button type="button" data-command="removeFormat">⌫</button>
+              <button type="button" id="textColorBtn">🎨</button>
+              <button type="button" data-command="justifyLeft">☰</button>
+              <button type="button" data-command="justifyCenter">≡</button>
+              <button type="button" data-command="justifyRight">☷</button>
+              <button type="button" data-command="justifyFull">▤</button>
+              <button type="button" id="insertImageBtn">🖼</button>
+              <button type="button" id="createLinkBtn">🔗</button>
+              <button type="button" id="codeBtn">&lt;/&gt;</button>
+            </div>
+
+            <div
+              id="profileEditor"
+              class="profile-textarea"
+              contenteditable="true"
+              spellcheck="false"
+            >
+              Hi, I'm Hanna.
+            </div>
+
+            <div class="profile-actions">
+              <button class="save-btn" id="saveProfileBtn" type="button">
+                Сохранить
+              </button>
+              <button class="cancel-btn" id="cancelProfileBtn" type="button">
+                Отмена
+              </button>
+            </div>
+          </section>
+
+          <section class="created-bots-panel">
+            <div class="created-bots-head">
+              <h2>Боты этого профиля</h2>
+              <p id="createdBotsCount">0</p>
+            </div>
+            <div class="created-bots-tools">
+              <div class="sidebar-search">
+                <input
+                  type="text"
+                  id="characterSearch"
+                  placeholder="Поиск персонажей..."
+                />
+                <button type="button">⌕</button>
+              </div>
+              <select id="sortCharacters" class="sidebar-select">
+                <option value="latest">Latest</option>
+                <option value="name">Name</option>
+              </select>
+            </div>
+            <div id="createdBotsList" class="created-bots-list"></div>
+            <p id="createdBotsEmpty" class="characters-empty">У этого профиля пока нет ботов</p>
+          </section>
+        </section>
+
+        <aside class="profile-sidebar">
+          <div class="sidebar-menu">
+            <a href="#" class="sidebar-btn">Понравившиеся</a>
+            <a href="#" class="sidebar-btn">Персоны</a>
+            <a href="#" class="sidebar-btn active">Персонажи</a>
+            <a href="/pages/create.html" class="sidebar-btn"
+              >Создать персонажа</a
+            >
+            <button class="sidebar-btn danger-btn" id="logoutBtn" type="button">
+              Выйти из аккаунта
+            </button>
+            <a href="/pages/admin.html" id="adminSidebarBtn" class="sidebar-btn"
+              >Админ-панель</a
+            >
+          </div>
+
+        </aside>
+      </div>
+    </main>
+
+    <script>
+      const brandLink = document.querySelector(".brand");
+      if (brandLink) {
+        brandLink.href = localStorage.getItem("user")
+          ? "/pages/main.html"
+          : "/pages/index.html";
+      }
+
+      const savedUser = JSON.parse(localStorage.getItem("user"));
+
+      if (!savedUser) {
+        window.location.href = "/pages/autorization.html";
+      }
+
+      const bioStorageKey = `profileBioHtml_${savedUser.id}`;
+      const avatarStorageKey = `profileAvatar_${savedUser.id}`;
+      const profileParams = new URLSearchParams(window.location.search);
+      const externalAuthorId = profileParams.get("authorId");
+      const externalUsername = (profileParams.get("username") || "").trim();
+      const isExternalProfile =
+        (externalAuthorId && String(externalAuthorId) !== String(savedUser.id)) ||
+        (!!externalUsername &&
+          externalUsername.toLowerCase() !==
+            String(savedUser.username || "").toLowerCase());
+
+      const usernameElement = document.getElementById("username");
+      const profileEditor = document.getElementById("profileEditor");
+      const profilePreview = document.getElementById("profilePreview");
+      const saveProfileBtn = document.getElementById("saveProfileBtn");
+      const cancelProfileBtn = document.getElementById("cancelProfileBtn");
+      const followersCount = document.getElementById("followersCount");
+      const memberSince = document.getElementById("memberSince");
+      const toggleEditBtn = document.getElementById("toggleEditBtn");
+      const logoutBtn = document.getElementById("logoutBtn");
+      const followAuthorBtn = document.getElementById("followAuthorBtn");
+      const profileEditorPanel = document.getElementById("profileEditorPanel");
+
+      const profileAvatar = document.getElementById("profileAvatar");
+      const topbarAvatar = document.getElementById("topbarAvatar");
+      const profileAvatarInput = document.getElementById("profileAvatarInput");
+
+      const adminSidebarBtn = document.getElementById("adminSidebarBtn");
+      const searchInput = document.getElementById("searchInput");
+      const searchBtn = document.getElementById("searchBtn");
+
+      if (adminSidebarBtn && Number(savedUser.role_id) !== 2) {
+        adminSidebarBtn.style.display = "none";
+      }
+
+      const characterSearch = document.getElementById("characterSearch");
+      const sortCharacters = document.getElementById("sortCharacters");
+      const createdBotsList = document.getElementById("createdBotsList");
+      const createdBotsEmpty = document.getElementById("createdBotsEmpty");
+      const createdBotsCount = document.getElementById("createdBotsCount");
+
+      if (searchBtn && searchInput) {
+        searchBtn.addEventListener("click", () => {
+          const query = searchInput.value.trim();
+          window.location.href = `/pages/search.html?q=${encodeURIComponent(query)}`;
+        });
+
+        searchInput.addEventListener("keydown", (event) => {
+          if (event.key === "Enter") {
+            const query = searchInput.value.trim();
+            window.location.href = `/pages/search.html?q=${encodeURIComponent(query)}`;
+          }
+        });
+      }
+
+      let characters = [];
+      let viewedProfile = {
+        id: savedUser.id,
+        username: savedUser.username || "unknown",
+        created_at: savedUser.created_at || null,
+        avatar_url: savedUser.avatar_url || "",
+      };
+
+      function getAuthorStorageKey(profile) {
+        if (profile?.id) return `author_${profile.id}`;
+        return `author_name_${String(profile?.username || "unknown").toLowerCase()}`;
+      }
+
+      function escapeHtml(text) {
+        const div = document.createElement("div");
+        div.textContent = text || "";
+        return div.innerHTML;
+      }
+
+      function getFollowersStorageKey(profile) {
+        return `profileFollowers_${getAuthorStorageKey(profile)}`;
+      }
+
+      function getFollowers(profile) {
+        try {
+          const value = localStorage.getItem(getFollowersStorageKey(profile));
+          const parsed = JSON.parse(value || "[]");
+          return Array.isArray(parsed) ? parsed : [];
+        } catch {
+          return [];
+        }
+      }
+
+      function setFollowers(profile, followerIds) {
+        localStorage.setItem(
+          getFollowersStorageKey(profile),
+          JSON.stringify(followerIds),
+        );
+      }
+
+      function isFollowing(profile) {
+        return getFollowers(profile).includes(savedUser.id);
+      }
+
+      function updateFollowersCount(profile) {
+        followersCount.textContent = String(getFollowers(profile).length);
+      }
+
+      function updateFollowButton(profile) {
+        const active = isFollowing(profile);
+        followAuthorBtn.textContent = active ? "Отписаться" : "Подписаться";
+      }
+
+      function applyProfileBaseData(profile) {
+        usernameElement.textContent = profile.username || "unknown";
+
+        if (profile.created_at) {
+          const date = new Date(profile.created_at);
+          if (!Number.isNaN(date.getTime())) {
+            memberSince.textContent = date.toLocaleDateString("en-US", {
+              month: "short",
+              day: "numeric",
+              year: "numeric",
+            });
+          }
+        }
+      }
+
+      const savedAvatar = localStorage.getItem(avatarStorageKey);
+      const userAvatar = savedUser.avatar_url || "";
+
+      if (savedAvatar && savedAvatar.trim()) {
+        topbarAvatar.src = savedAvatar;
+      } else if (userAvatar && userAvatar.trim()) {
+        topbarAvatar.src = userAvatar;
+      }
+
+      if (isExternalProfile) {
+        toggleEditBtn.style.display = "none";
+        logoutBtn.style.display = "none";
+        profileEditorPanel.classList.add("hidden");
+        profileAvatarInput.disabled = true;
+        document.querySelector(".avatar-change-btn").style.display = "none";
+        followAuthorBtn.style.display = "inline-flex";
+      }
+
+      function compressImage(file, maxSize = 320, quality = 0.82) {
+        return new Promise((resolve, reject) => {
+          const reader = new FileReader();
+
+          reader.onload = (e) => {
+            const img = new Image();
+
+            img.onload = () => {
+              const canvas = document.createElement("canvas");
+              let { width, height } = img;
+
+              if (width > height) {
+                if (width > maxSize) {
+                  height = Math.round((height * maxSize) / width);
+                  width = maxSize;
+                }
+              } else {
+                if (height > maxSize) {
+                  width = Math.round((width * maxSize) / height);
+                  height = maxSize;
+                }
+              }
+
+              canvas.width = width;
+              canvas.height = height;
+
+              const ctx = canvas.getContext("2d");
+              ctx.drawImage(img, 0, 0, width, height);
+
+              const result = canvas.toDataURL("image/jpeg", quality);
+              resolve(result);
+            };
+
+            img.onerror = reject;
+            img.src = e.target.result;
+          };
+
+          reader.onerror = reject;
+          reader.readAsDataURL(file);
+        });
+      }
+
+      profileAvatarInput.addEventListener("change", async () => {
+        const file = profileAvatarInput.files[0];
+        if (!file) return;
+
+        try {
+          const result = await compressImage(file, 320, 0.82);
+
+          profileAvatar.src = result;
+          topbarAvatar.src = result;
+
+          try {
+            localStorage.setItem(avatarStorageKey, result);
+          } catch (storageError) {
+            console.error("AVATAR SAVE ERROR:", storageError);
+            alert(
+              "Картинка слишком большая для сохранения в браузере. Она применена только временно.",
+            );
+          }
+        } catch (error) {
+          console.error("IMAGE COMPRESS ERROR:", error);
+          alert("Ошибка обработки изображения");
+        }
+      });
+
+      toggleEditBtn.addEventListener("click", () => {
+        if (isExternalProfile) return;
+        profileEditorPanel.classList.toggle("hidden");
+
+        toggleEditBtn.textContent = profileEditorPanel.classList.contains(
+          "hidden",
+        )
+          ? "Редактировать профиль"
+          : "Скрыть редактор";
+      });
+
+      logoutBtn.addEventListener("click", () => {
+        const shouldLogout = window.confirm("Выйти из аккаунта?");
+        if (!shouldLogout) return;
+
+        localStorage.removeItem("user");
+        window.location.href = "/pages/autorization.html";
+      });
+
+      document
+        .querySelectorAll(".editor-toolbar button[data-command]")
+        .forEach((button) => {
+          button.addEventListener("click", () => {
+            const command = button.dataset.command;
+            const value = button.dataset.value || null;
+
+            profileEditor.focus();
+            document.execCommand(command, false, value);
+          });
+        });
+
+      document.getElementById("createLinkBtn").addEventListener("click", () => {
+        const url = prompt("Введите ссылку:");
+        if (!url) return;
+
+        profileEditor.focus();
+        document.execCommand("createLink", false, url);
+      });
+
+      document
+        .getElementById("insertImageBtn")
+        .addEventListener("click", () => {
+          const url = prompt("Вставьте ссылку на изображение:");
+          if (!url) return;
+
+          profileEditor.focus();
+          document.execCommand("insertImage", false, url);
+        });
+
+      document.getElementById("textColorBtn").addEventListener("click", () => {
+        const color = prompt("Введите цвет, например red, #ff00aa, white:");
+        if (!color) return;
+
+        profileEditor.focus();
+        document.execCommand("foreColor", false, color);
+      });
+
+      document.getElementById("codeBtn").addEventListener("click", () => {
+        const selection = window.getSelection().toString();
+        if (!selection) return;
+
+        profileEditor.focus();
+        document.execCommand("insertHTML", false, `<code>${selection}</code>`);
+      });
+
+      saveProfileBtn.addEventListener("click", () => {
+        if (isExternalProfile) return;
+        const html = profileEditor.innerHTML.trim();
+
+        localStorage.setItem(bioStorageKey, html);
+        profilePreview.innerHTML = html || "Описание пока не заполнено";
+
+        alert("Профиль сохранён ✅");
+      });
+
+      cancelProfileBtn.addEventListener("click", () => {
+        if (isExternalProfile) return;
+        const currentHtml =
+          localStorage.getItem(bioStorageKey) || "Hi, I'm Hanna.";
+        profileEditor.innerHTML = currentHtml;
+        profilePreview.innerHTML = currentHtml || "Описание пока не заполнено";
+      });
+
+      followAuthorBtn.addEventListener("click", () => {
+        const followers = getFollowers(viewedProfile);
+        const already = followers.includes(savedUser.id);
+        const next = already
+          ? followers.filter((id) => id !== savedUser.id)
+          : [...followers, savedUser.id];
+
+        setFollowers(viewedProfile, next);
+        updateFollowersCount(viewedProfile);
+        updateFollowButton(viewedProfile);
+      });
+
+      function renderCreatedBots(items) {
+        createdBotsList.innerHTML = "";
+        createdBotsCount.textContent = `Найдено: ${items.length}`;
+
+        if (!items.length) {
+          createdBotsEmpty.style.display = "block";
+          return;
+        }
+
+        createdBotsEmpty.style.display = "none";
+
+        items.forEach((bot) => {
+          const card = document.createElement("article");
+          card.className = "created-bot-card";
+          const favoriteKey = `favoriteBot_${savedUser.id}_${bot.id}`;
+          const isFavorite = localStorage.getItem(favoriteKey) === "true";
+
+          const authorId = bot.creator_id || viewedProfile?.id || "";
+          const authorName = viewedProfile?.username || "unknown";
+          const authorLink = authorId
+            ? `/pages/profile.html?authorId=${encodeURIComponent(authorId)}&username=${encodeURIComponent(authorName)}`
+            : `/pages/profile.html?username=${encodeURIComponent(authorName)}`;
+
+          card.innerHTML = `
+            <div class="created-bot-cover-wrap">
+              <a href="/pages/bot.html?id=${bot.id}" class="created-bot-cover">
+                <img src="${bot.avatar_url || "/img/icon.svg"}" alt="bot" />
+              </a>
+              <button class="created-bot-favorite ${isFavorite ? "active" : ""}" type="button" aria-label="Избранное">❤</button>
+            </div>
+            <div class="created-bot-body">
+              <h3><a href="/pages/bot.html?id=${bot.id}">${escapeHtml(bot.name || "Без имени")}</a></h3>
+              <a href="${authorLink}" class="created-bot-author">@${escapeHtml(authorName)}</a>
+              <p>${escapeHtml(bot.short_description || "Описание отсутствует")}</p>
+              <div class="created-bot-actions">
+                <a href="/pages/bot.html?id=${bot.id}" class="created-bot-btn">Открыть</a>
+                <a href="/pages/chat.html?id=${bot.id}" class="created-bot-btn primary">Чат</a>
+              </div>
+            </div>
+          `;
+
+          const favoriteBtn = card.querySelector(".created-bot-favorite");
+          favoriteBtn.addEventListener("click", () => {
+            const current = localStorage.getItem(favoriteKey) === "true";
+            const next = !current;
+            localStorage.setItem(favoriteKey, String(next));
+            favoriteBtn.classList.toggle("active", next);
+          });
+
+          createdBotsList.appendChild(card);
+        });
+      }
+
+      function updateCharacters() {
+        let filtered = [...characters];
+        const query = characterSearch.value.trim().toLowerCase();
+
+        if (query) {
+          filtered = filtered.filter((item) =>
+            (item.name || "").toLowerCase().includes(query),
+          );
+        }
+
+        if (sortCharacters.value === "name") {
+          filtered.sort((a, b) => (a.name || "").localeCompare(b.name || ""));
+        } else {
+          filtered.sort((a, b) => (b.id || 0) - (a.id || 0));
+        }
+
+        renderCreatedBots(filtered);
+      }
+
+      characterSearch.addEventListener("input", updateCharacters);
+      sortCharacters.addEventListener("change", updateCharacters);
+
+      async function loadProfileData() {
+        applyProfileBaseData(savedUser);
+
+        const ownBioHtml = localStorage.getItem(bioStorageKey);
+        profileEditor.innerHTML = ownBioHtml || "Hi, I'm Hanna.";
+        profilePreview.innerHTML = ownBioHtml || "Описание пока не заполнено";
+
+        if (savedAvatar && savedAvatar.trim()) {
+          profileAvatar.src = savedAvatar;
+        } else if (userAvatar && userAvatar.trim()) {
+          profileAvatar.src = userAvatar;
+        }
+
+        if (!isExternalProfile) {
+          viewedProfile = {
+            id: savedUser.id,
+            username: savedUser.username || "unknown",
+            created_at: savedUser.created_at || null,
+            avatar_url: userAvatar,
+          };
+          updateFollowersCount(viewedProfile);
+          return;
+        }
+
+        try {
+          const response = await fetch("http://localhost:3000/all-bots");
+
+          if (!response.ok) {
+            const text = await response.text();
+            console.error("RAW RESPONSE:", text);
+            throw new Error(`HTTP ${response.status}`);
+          }
+
+          const raw = await response.json();
+          const data = Array.isArray(raw) ? raw : [];
+          const matchedBots = data.filter((bot) => {
+            if (
+              externalAuthorId &&
+              String(bot.creator_id || bot.author_id || "") ===
+                String(externalAuthorId)
+            ) {
+              return true;
+            }
+            return (
+              String(bot.author_name || bot.author || "")
+                .trim()
+                .toLowerCase() === externalUsername.toLowerCase()
+            );
+          });
+
+          const sample = matchedBots[0];
+          viewedProfile = {
+            id: sample?.creator_id || sample?.author_id || externalAuthorId || null,
+            username:
+              sample?.author_name || sample?.author || externalUsername || "unknown",
+            created_at: sample?.created_at || null,
+            avatar_url: sample?.avatar_url || "",
+          };
+
+          applyProfileBaseData(viewedProfile);
+          profilePreview.innerHTML = `Профиль автора @${viewedProfile.username}`;
+          profileEditor.innerHTML = profilePreview.innerHTML;
+
+          if (viewedProfile.avatar_url) {
+            profileAvatar.src = viewedProfile.avatar_url;
+          } else {
+            profileAvatar.src = "/img/icon.svg";
+          }
+
+          updateFollowersCount(viewedProfile);
+          updateFollowButton(viewedProfile);
+        } catch (error) {
+          console.error("Ошибка загрузки данных профиля:", error);
+          viewedProfile = {
+            id: externalAuthorId || null,
+            username: externalUsername || "unknown",
+            created_at: null,
+            avatar_url: "",
+          };
+          applyProfileBaseData(viewedProfile);
+          profilePreview.innerHTML = `Профиль автора @${viewedProfile.username}`;
+          profileEditor.innerHTML = profilePreview.innerHTML;
+          updateFollowersCount(viewedProfile);
+          updateFollowButton(viewedProfile);
+        }
+      }
+
+      async function loadCharacters() {
+        if (!savedUser || !savedUser.id) return;
+
+        try {
+          const endpoint = isExternalProfile
+            ? "http://localhost:3000/all-bots"
+            : `http://localhost:3000/my-bots/${savedUser.id}`;
+          const response = await fetch(endpoint);
+
+          if (!response.ok) {
+            const text = await response.text();
+            console.error("RAW RESPONSE:", text);
+            throw new Error(`HTTP ${response.status}`);
+          }
+
+          const data = await response.json();
+          let list = Array.isArray(data) ? data : [];
+
+          if (isExternalProfile) {
+            list = list.filter((bot) => {
+              if (
+                externalAuthorId &&
+                String(bot.creator_id || bot.author_id || "") ===
+                  String(externalAuthorId)
+              ) {
+                return true;
+              }
+              return (
+                String(bot.author_name || bot.author || "")
+                  .trim()
+                  .toLowerCase() === externalUsername.toLowerCase()
+              );
+            });
+          }
+
+          characters = list;
+          updateCharacters();
+        } catch (error) {
+          console.error("Ошибка загрузки персонажей:", error);
+          createdBotsEmpty.style.display = "block";
+          createdBotsEmpty.textContent = "Ошибка загрузки персонажей";
+        }
+      }
+
+      (async () => {
+        await loadProfileData();
+        await loadCharacters();
+      })();
+
+      document.body.classList.add("page-transition");
+      requestAnimationFrame(() => {
+        document.body.classList.add("page-ready");
+      });
+
+      document.addEventListener("click", (event) => {
+        const link = event.target.closest("a[href]");
+        if (!link) return;
+
+        const href = link.getAttribute("href");
+        if (!href || href.startsWith("#") || href.startsWith("javascript:")) return;
+        if (link.target === "_blank" || event.ctrlKey || event.metaKey || event.shiftKey) return;
+
+        const url = new URL(link.href, window.location.origin);
+        if (url.origin !== window.location.origin) return;
+
+        event.preventDefault();
+        document.body.classList.add("page-leaving");
+        setTimeout(() => {
+          window.location.href = url.pathname + url.search + url.hash;
+        }, 180);
+      });
+    </script>
+  </body>
+</html>

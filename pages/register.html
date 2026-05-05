@@ -1,0 +1,171 @@
+<!doctype html>
+<html lang="ru">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Регистрация</title>
+
+    <link rel="stylesheet" href="/css/general.css" />
+    <link rel="stylesheet" href="/css/register.css" />
+  </head>
+
+  <body>
+    <header>
+      <div class="container">
+        <nav>
+          <div class="logo">
+            <img src="/img/icon.svg" alt="logo" />
+            <a href="/pages/index.html">Charitor.ai</a>
+          </div>
+
+          <ul class="nav">
+            <li><a href="/pages/register.html">Зарегистрироваться</a></li>
+            <li><a href="/pages/autorization.html">Войти</a></li>
+          </ul>
+        </nav>
+      </div>
+    </header>
+
+    <main class="register-page">
+      <div class="register-card">
+        <h1>Регистрация</h1>
+
+        <form class="register-form" id="registerForm">
+          <div id="formMessage" class="form-message" hidden></div>
+
+          <label for="username">Имя пользователя</label>
+          <input
+            type="text"
+            id="username"
+            placeholder="Введите имя пользователя"
+            required
+          />
+
+          <label for="email">Email</label>
+          <input type="email" id="email" placeholder="Введите email" required />
+
+          <label for="password">Пароль</label>
+          <input
+            type="password"
+            id="password"
+            placeholder="Введите пароль"
+            required
+          />
+
+          <label for="repeat-password">Повторите пароль</label>
+          <input
+            type="password"
+            id="repeat-password"
+            placeholder="Повторите пароль"
+            required
+          />
+
+          <label class="checkbox">
+            <input type="checkbox" id="agree" />
+            <span>
+              Я подтверждаю, что мне 18 лет или больше и я согласен с
+              <a href="#">Условиями предоставления услуг</a>
+              и
+              <a href="#">Политикой конфиденциальности</a>
+            </span>
+          </label>
+
+          <button type="submit" class="btn-main">Создать аккаунт</button>
+
+          <p class="login-text">Уже есть аккаунт?</p>
+
+          <a href="/pages/autorization.html" class="btn-second">
+            Авторизация
+          </a>
+        </form>
+      </div>
+    </main>
+
+    <script>
+      const form = document.getElementById("registerForm");
+      const formMessage = document.getElementById("formMessage");
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      const passwordRegex = /^(?=.*[A-Za-z])(?=.*\d).{8,}$/;
+
+      function showMessage(text, type = "error") {
+        formMessage.hidden = false;
+        formMessage.textContent = text;
+        formMessage.className = `form-message ${type}`;
+      }
+
+      form.addEventListener("submit", async (e) => {
+        e.preventDefault();
+
+        const username = document.getElementById("username").value.trim();
+        const email = document.getElementById("email").value.trim();
+        const password = document.getElementById("password").value.trim();
+        const repeatPassword = document
+          .getElementById("repeat-password")
+          .value.trim();
+        const agree = document.getElementById("agree").checked;
+        showMessage("", "error");
+        formMessage.hidden = true;
+
+        if (!username || !email || !password || !repeatPassword) {
+          showMessage("Заполните все поля");
+          return;
+        }
+
+        if (!emailRegex.test(email)) {
+          showMessage("Введите корректный email");
+          return;
+        }
+
+        if (!passwordRegex.test(password)) {
+          showMessage("Пароль должен быть не короче 8 символов и содержать буквы и цифры");
+          return;
+        }
+
+        if (password !== repeatPassword) {
+          showMessage("Пароли не совпадают");
+          return;
+        }
+
+        if (!agree) {
+          showMessage("Подтвердите согласие с условиями");
+          return;
+        }
+
+        try {
+          const response = await fetch("http://localhost:3000/register", {
+            method: "POST",
+            mode: "cors",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              username,
+              email,
+              password,
+              passwordConfirmation: repeatPassword,
+            }),
+          });
+
+          const contentType = response.headers.get("content-type") || "";
+          const text = await response.text();
+
+          if (!contentType.includes("application/json")) {
+            showMessage("Сервер вернул неожиданный ответ");
+            return;
+          }
+
+          const data = JSON.parse(text);
+          showMessage(data.message || "Готово", response.ok ? "success" : "error");
+
+          if (response.ok) {
+            setTimeout(() => {
+              window.location.href = "/pages/autorization.html";
+            }, 700);
+          }
+        } catch (error) {
+          showMessage("Ошибка соединения с сервером");
+        }
+      });
+    </script>
+  </body>
+</html>

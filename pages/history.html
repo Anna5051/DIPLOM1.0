@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>История чатов — Charitor.ai</title>
+  <link rel="stylesheet" href="../css/general.css" />
+  <link rel="stylesheet" href="../css/history.css" />
+</head>
+<body>
+  <header class="topbar">
+    <a href="/pages/main.html" class="brand">Charitor.ai</a>
+
+    <div class="search-box">
+      <input id="searchInput" type="text" placeholder="Поиск персонажей..." />
+      <button type="button" id="searchBtn">⌕</button>
+    </div>
+
+    <div class="topbar-right">
+      <a href="/pages/history.html" class="top-icon">💬</a>
+      <a href="/pages/profile.html" class="profile-mini">
+        <img id="topAvatar" src="/img/icon.svg" alt="avatar" />
+      </a>
+    </div>
+  </header>
+
+  <main class="history-page">
+    <section class="history-head">
+      <div>
+        <h1>Мои чаты</h1>
+        <p>Продолжай истории с персонажами с того места, где остановилась.</p>
+      </div>
+
+      <div class="history-controls">
+        <select id="sortSelect">
+          <option value="count">Количество чатов</option>
+          <option value="latest">Недавние</option>
+          <option value="oldest">Давние</option>
+        </select>
+
+        <button id="refreshBtn" type="button">Обновить</button>
+      </div>
+    </section>
+
+    <div class="status-box" id="statusBox">Загрузка истории...</div>
+
+    <section class="chats-grid" id="chatsGrid"></section>
+  </main>
+
+  <script>
+    const brandLink = document.querySelector(".brand");
+    if (brandLink) {
+      brandLink.href = localStorage.getItem("user")
+        ? "/pages/main.html"
+        : "/pages/index.html";
+    }
+
+    const savedUser = JSON.parse(localStorage.getItem("user") || "null");
+
+    if (!savedUser || !savedUser.id) {
+      window.location.href = "./autorization.html";
+    }
+
+    const searchInput = document.getElementById("searchInput");
+    const searchBtn = document.getElementById("searchBtn");
+    const sortSelect = document.getElementById("sortSelect");
+    const chatsGrid = document.getElementById("chatsGrid");
+    const statusBox = document.getElementById("statusBox");
+    const refreshBtn = document.getElementById("refreshBtn");
+    const topAvatar = document.getElementById("topAvatar");
+
+    let chats = [];
+
+    if (savedUser.avatar_url) {
+      topAvatar.src = savedUser.avatar_url;
+    }
+
+    function escapeHtml(value) {
+      const div = document.createElement("div");
+      div.textContent = value || "";
+      return div.innerHTML;
+    }
+
+    function normalize(value) {
+      return String(value || "").toLowerCase().trim();
+    }
+
+    function formatDate(value) {
+      if (!value) return "без даты";
+
+      const date = new Date(value);
+      if (Number.isNaN(date.getTime())) return "без даты";
+
+      return date.toLocaleDateString("ru-RU", {
+        day: "2-digit",
+        month: "short",
+        year: "numeric"
+      });
+    }
+
+    function getAvatar(chat) {
+      return chat.avatar_url || "../img/icon.svg";
+    }
+
+    function getChatLink(chat) {
+      return `./chat.html?id=${chat.bot_id}`;
+    }
+
+    function renderChats(items) {
+      chatsGrid.innerHTML = "";
+
+      if (!items.length) {
+        statusBox.style.display = "block";
+        statusBox.textContent = "Чаты не найдены";
+        return;
+      }
+
+      statusBox.style.display = "none";
+
+      items.forEach((chat) => {
+        const title = chat.bot_name || chat.title || "Без названия";
+        const summary = chat.summary || `Последний чат с персонажем ${title}`;
+
+        const card = document.createElement("article");
+        card.className = "chat-card";
+
+        card.innerHTML = `
+          <div class="chat-cover">
+            <img src="${getAvatar(chat)}" alt="${escapeHtml(title)}" />
+          </div>
+
+          <div class="chat-info">
+            <h3>🔒 ${escapeHtml(title)}</h3>
+            <p>${escapeHtml(summary)}</p>
+
+            <div class="chat-meta">
+              <span>${formatDate(chat.updated_at || chat.created_at)}</span>
+              <span>${chat.messages_count || 0} сообщений</span>
+            </div>
+
+            <a href="${getChatLink(chat)}" class="continue-btn">Продолжить</a>
+          </div>
+        `;
+
+        chatsGrid.appendChild(card);
+      });
+    }
+
+    function applyFilters() {
+      const query = normalize(searchInput.value);
+      const sort = sortSelect.value;
+
+      let filtered = [...chats];
+
+      if (query) {
+        filtered = filtered.filter((chat) =>
+          normalize(`${chat.title} ${chat.bot_name} ${chat.summary}`).includes(query)
+        );
+      }
+
+      if (sort === "latest") {
+        filtered.sort((a, b) =>
+          new Date(b.updated_at || b.created_at || 0) -
+          new Date(a.updated_at || a.created_at || 0)
+        );
+      }
+
+      if (sort === "oldest") {
+        filtered.sort((a, b) =>
+          new Date(a.updated_at || a.created_at || 0) -
+          new Date(b.updated_at || b.created_at || 0)
+        );
+      }
+
+      if (sort === "count") {
+        filtered.sort((a, b) =>
+          Number(b.messages_count || 0) - Number(a.messages_count || 0)
+        );
+      }
+
+      renderChats(filtered);
+    }
+
+    async function loadChats() {
+      statusBox.style.display = "block";
+      statusBox.textContent = "Загрузка истории...";
+      chatsGrid.innerHTML = "";
+
+      try {
+        const response = await fetch(`http://localhost:3000/my-chats/${savedUser.id}`);
+
+        if (!response.ok) {
+          throw new Error("Ошибка загрузки чатов");
+        }
+
+        const data = await response.json();
+        chats = Array.isArray(data) ? data : [];
+        applyFilters();
+      } catch (error) {
+        console.error(error);
+        statusBox.textContent = "Не удалось загрузить историю чатов";
+      }
+    }
+
+    searchInput.addEventListener("input", applyFilters);
+    searchBtn.addEventListener("click", applyFilters);
+    searchInput.addEventListener("keydown", (event) => {
+      if (event.key === "Enter") {
+        applyFilters();
+      }
+    });
+    sortSelect.addEventListener("change", applyFilters);
+    refreshBtn.addEventListener("click", loadChats);
+
+    loadChats();
+  </script>
+</body>
+</html>
