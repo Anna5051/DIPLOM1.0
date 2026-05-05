@@ -395,6 +395,33 @@
               "Картинка слишком большая для сохранения в браузере. Она применена только временно.",
             );
           }
+
+          try {
+            const response = await fetch("http://localhost:3000/user/avatar", {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+              },
+              body: JSON.stringify({
+                user_id: savedUser.id,
+                avatar_url: result,
+              }),
+            });
+
+            if (!response.ok) {
+              const text = await response.text();
+              console.error("AVATAR UPDATE RAW RESPONSE:", text);
+              throw new Error(`HTTP ${response.status}`);
+            }
+
+            const payload = await response.json();
+            const updatedAvatar = payload.avatar_url || result;
+            savedUser.avatar_url = updatedAvatar;
+            localStorage.setItem("user", JSON.stringify(savedUser));
+          } catch (saveError) {
+            console.error("AVATAR DB SAVE ERROR:", saveError);
+            alert("Не удалось сохранить фото в базе данных");
+          }
         } catch (error) {
           console.error("IMAGE COMPRESS ERROR:", error);
           alert("Ошибка обработки изображения");
@@ -627,12 +654,13 @@
           const resolvedAuthorId =
             sample?.creator_id || sample?.author_id || externalAuthorId || null;
           const storedAuthorAvatar = getStoredProfileAvatar(resolvedAuthorId);
+          const serverAuthorAvatar = sample?.author_avatar || "";
           viewedProfile = {
             id: resolvedAuthorId,
             username:
               sample?.author_name || sample?.author || externalUsername || "unknown",
             created_at: sample?.created_at || null,
-            avatar_url: storedAuthorAvatar || "",
+            avatar_url: storedAuthorAvatar || serverAuthorAvatar || "",
           };
 
           applyProfileBaseData(viewedProfile);

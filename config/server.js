@@ -297,6 +297,53 @@ app.post("/login", (req, res) => {
   });
 });
 
+/*Обновление аватара пользователя*/
+function updateUserAvatar(req, res) {
+  const userId = Number(req.body.user_id);
+  const avatarUrl = getString(req.body.avatar_url);
+
+  if (!userId) {
+    return res.status(400).json({
+      message: "Не указан пользователь",
+    });
+  }
+
+  if (!avatarUrl) {
+    return res.status(400).json({
+      message: "Не передан аватар",
+    });
+  }
+
+  const sql = `
+    UPDATE users
+    SET avatar_url = ?
+    WHERE id = ?
+  `;
+
+  db.query(sql, [avatarUrl, userId], (err, result) => {
+    if (err) {
+      console.error("UPDATE AVATAR ERROR:", err);
+      return res.status(500).json({
+        message: "Ошибка сохранения аватара",
+      });
+    }
+
+    if (result.affectedRows === 0) {
+      return res.status(404).json({
+        message: "Пользователь не найден",
+      });
+    }
+
+    res.json({
+      message: "Аватар сохранен ✅",
+      avatar_url: avatarUrl,
+    });
+  });
+}
+
+app.put("/user/avatar", updateUserAvatar);
+app.post("/user/avatar", updateUserAvatar);
+
 /*Создание бота*/
 app.post("/create-bot", (req, res) => {
   const {
@@ -417,7 +464,8 @@ app.get("/bot/:id", (req, res) => {
       b.tags,
       b.created_at,
       b.updated_at,
-      u.username AS author_name
+      u.username AS author_name,
+      u.avatar_url AS author_avatar
     FROM bots b
     LEFT JOIN users u ON b.creator_id = u.id
     WHERE b.id = ?
