@@ -9,6 +9,59 @@ body {
   background-attachment: fixed;
 }
 
+.site-notify-stack {
+  position: fixed;
+  top: 16px;
+  right: 16px;
+  z-index: 3000;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  pointer-events: none;
+}
+
+.site-notify {
+  min-width: 240px;
+  max-width: 420px;
+  padding: 10px 14px;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  color: #fff;
+  background: rgba(20, 25, 55, 0.94);
+  box-shadow: 0 8px 24px rgba(5, 6, 18, 0.35);
+  font-size: 18px;
+  line-height: 1.25;
+  opacity: 0;
+  transform: translateY(-6px);
+  animation: notify-in 0.2s ease forwards;
+}
+
+.site-notify--error {
+  border-color: rgba(255, 94, 132, 0.5);
+  background: rgba(102, 20, 44, 0.95);
+}
+
+.site-notify--warning {
+  border-color: rgba(255, 193, 92, 0.55);
+  background: rgba(99, 68, 18, 0.95);
+}
+
+.site-notify--info {
+  border-color: rgba(151, 191, 255, 0.55);
+  background: rgba(20, 49, 102, 0.95);
+}
+
+@keyframes notify-in {
+  from {
+    opacity: 0;
+    transform: translateY(-6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
 body.page-transition {
   opacity: 0;
   transition: opacity 0.25s ease;
