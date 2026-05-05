@@ -113,13 +113,13 @@
         <h2>Полная история персонажа</h2>
 
         <div class="accordion">
-          <details class="accordion-item" open>
+          <details class="accordion-item">
             <summary>Сюжет</summary>
             <div class="accordion-content" id="accordionPlot">Нет данных</div>
           </details>
 
           <details class="accordion-item">
-            <summary>Личность</summary>
+            <summary>Биография</summary>
             <div class="accordion-content" id="accordionPersonality">
               Нет данных
             </div>
@@ -234,6 +234,36 @@
         return div.innerHTML;
       }
 
+      function normalizeStoryText(rawText) {
+        const html = String(rawText || "");
+        const plain = html
+          .replace(/<br\s*\/?>/gi, "\n")
+          .replace(/<\/p>/gi, "\n")
+          .replace(/<\/div>/gi, "\n")
+          .replace(/<li>/gi, "• ")
+          .replace(/<\/li>/gi, "\n")
+          .replace(/<[^>]*>/g, "")
+          .replace(/\r/g, "")
+          .replace(/\n{3,}/g, "\n\n")
+          .trim();
+
+        return plain || "Описание отсутствует";
+      }
+
+      function extractPromptMetadata(systemPrompt) {
+        const prompt = String(systemPrompt || "");
+        const match = prompt.match(
+          /^\[CHARITOR_PROMPT_V1\]\n([\s\S]*?)\n\[\/CHARITOR_PROMPT_V1\]\n\n/,
+        );
+        if (!match) return null;
+
+        try {
+          return JSON.parse(match[1]);
+        } catch {
+          return null;
+        }
+      }
+
       function getFavoriteKey() {
         if (!savedUser?.id || !botId) return "";
         return `favoriteBot_${savedUser.id}_${botId}`;
@@ -300,15 +330,15 @@
       }
 
       function setCollapsedStory(text) {
-        fullStoryText = text || "Описание отсутствует";
+        fullStoryText = normalizeStoryText(text);
 
         if (fullStoryText.length > 400) {
-        storyBox.innerHTML = fullStoryText.slice(0, 400) + "...";
+          storyBox.innerHTML = escapeHtml(fullStoryText.slice(0, 400)).replace(/\n/g, "<br>") + "...";
           toggleStoryBtn.style.display = "inline-block";
           toggleStoryBtn.textContent = "Открыть полностью";
           storyExpanded = false;
         } else {
-         storyBox.innerHTML = fullStoryText;
+          storyBox.innerHTML = escapeHtml(fullStoryText).replace(/\n/g, "<br>");
           toggleStoryBtn.style.display = "none";
         }
       }
@@ -317,21 +347,24 @@
         if (!fullStoryText) return;
 
         if (storyExpanded) {
-        storyBox.innerHTML = fullStoryText.slice(0, 400) + "...";
+          storyBox.innerHTML = escapeHtml(fullStoryText.slice(0, 400)).replace(/\n/g, "<br>") + "...";
           toggleStoryBtn.textContent = "Открыть полностью";
           storyExpanded = false;
         } else {
-        storyBox.innerHTML = fullStoryText;
+          storyBox.innerHTML = escapeHtml(fullStoryText).replace(/\n/g, "<br>");
           toggleStoryBtn.textContent = "Скрыть";
           storyExpanded = true;
         }
       });
 
-      function showOwnerButtons(bot) {
-        if (!savedUser || !savedUser.id) return;
-        if (!bot || Number(bot.creator_id) !== Number(savedUser.id)) return;
+      function isBotOwner(bot) {
+        if (!savedUser?.id || !bot) return false;
+        const ownerId = bot.creator_id ?? bot.author_id ?? bot.user_id;
+        return Number(ownerId) === Number(savedUser.id);
+      }
 
-        editBotBtn.style.display = "inline-flex";
+      function showOwnerButtons(bot) {
+        editBotBtn.style.display = isBotOwner(bot) ? "inline-flex" : "none";
       }
 
       function setActivePersona(persona) {
@@ -450,13 +483,16 @@
           botShortDescription.textContent =
             bot.short_description || "Краткое описание отсутствует";
 
-          setCollapsedStory(
-            bot.full_description || "Описание сюжета отсутствует",
-          );
+          const promptMetadata = extractPromptMetadata(bot.system_prompt);
+          const scenarioText = promptMetadata?.scenario || "";
+          setCollapsedStory(scenarioText || "Описание сюжета отсутствует");
           setTags(bot.tags);
-accordionPlot.innerHTML = bot.full_description || "Сюжет не указан";
-accordionPersonality.innerHTML =
-  bot.short_description || "Личность не указана";
+accordionPlot.innerHTML = escapeHtml(
+  normalizeStoryText(scenarioText || "Сюжет не указан"),
+).replace(/\n/g, "<br>");
+accordionPersonality.innerHTML = escapeHtml(
+  normalizeStoryText(bot.full_description || "Биография не указана"),
+).replace(/\n/g, "<br>");
 accordionGreeting.innerHTML =
   bot.greeting_message || "Начальное сообщение не указано";
 accordionSystemPrompt.innerHTML =
@@ -484,7 +520,7 @@ accordionSystemPrompt.innerHTML =
       });
 
       editBotBtn.addEventListener("click", () => {
-        if (!botId) return;
+        if (!botId || !isBotOwner(currentBot)) return;
         window.location.href = `/pages/create.html?id=${botId}`;
       });
 

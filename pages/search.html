@@ -11,7 +11,6 @@
   <header class="search-topbar">
     <div class="topbar-left">
       <a href="/pages/main.html" class="brand">Charitor.ai</a>
-      <a href="./main.html" class="back-btn">← На главную</a>
     </div>
 
     <form class="top-search" id="topSearchForm">
@@ -24,9 +23,6 @@
     </form>
 
     <div class="topbar-right">
-      <a href="./create.html" class="create-link">Создать персонажа</a>
-      <button class="icon-btn" type="button">💬</button>
-      <button class="icon-btn" type="button">🔔</button>
       <a href="./profile.html" class="profile-mini">
         <img id="topAvatar" src="../img/icon.svg" alt="avatar" />
       </a>
@@ -35,26 +31,55 @@
 
   <main class="search-page">
     <section class="tags-panel">
-      <div class="tags-head">
-        <h1>Каталог персонажей</h1>
-        <p>Ищи персонажей по меткам, имени и автору. Только 16+.</p>
-      </div>
-
-      <div class="tag-cloud" id="tagCloud">
-        <button class="tag-chip active" data-tag="all">Все 16+</button>
-        <button class="tag-chip" data-tag="fantasy">Фэнтези</button>
-        <button class="tag-chip" data-tag="romance">Романтика</button>
-        <button class="tag-chip" data-tag="magic">Магия</button>
-        <button class="tag-chip" data-tag="villain">Антагонист</button>
-        <button class="tag-chip" data-tag="hero">Герой</button>
-        <button class="tag-chip" data-tag="anime">Аниме</button>
-        <button class="tag-chip" data-tag="story">Сюжет</button>
-        <button class="tag-chip" data-tag="oc">ОС</button>
-        <button class="tag-chip" data-tag="rp">Ролевая игра</button>
-        <button class="tag-chip" data-tag="adventure">Приключения</button>
-        <button class="tag-chip" data-tag="drama">Драма</button>
-        <button class="tag-chip" data-tag="sci-fi">Научная фантастика</button>
-        <button class="tag-chip" data-tag="mystery">Мистика</button>
+      <div class="tags-strip">
+        <button type="button" class="tags-icon-btn" id="clearTagsBtn" aria-label="Сбросить теги">×</button>
+        <div class="tag-cloud" id="tagCloud">
+          <button class="tag-chip" data-tag="all">Все</button>
+          <button class="tag-chip" data-tag="romance">Романтика</button>
+          <button class="tag-chip" data-tag="drama">Драма</button>
+          <button class="tag-chip" data-tag="rp">Ролевые сценарии</button>
+          <button class="tag-chip" data-tag="dark">Тёмные сюжеты</button>
+          <button class="tag-chip" data-tag="fantasy">Фэнтези</button>
+          <button class="tag-chip" data-tag="anime">Аниме</button>
+          <button class="tag-chip" data-tag="adventure">Приключения</button>
+          <button class="tag-chip" data-tag="story">Истории</button>
+          <button class="tag-chip" data-tag="mature">18+</button>
+          <button class="tag-chip" data-tag="flirt">Флирт</button>
+          <button class="tag-chip" data-tag="villain">Злодеи</button>
+          <button class="tag-chip" data-tag="hero">Герои</button>
+          <button class="tag-chip" data-tag="mystery">Мистика</button>
+          <button class="tag-chip" data-tag="magic">Магия</button>
+          <button class="tag-chip" data-tag="slowburn">Медленное развитие</button>
+          <button class="tag-chip" data-tag="enemies">От ненависти до любви</button>
+          <button class="tag-chip" data-tag="oc">Оригинальные персонажи</button>
+          <button class="tag-chip" data-tag="submissive">Сабмиссив</button>
+          <button class="tag-chip" data-tag="dominant">Доминант</button>
+          <button class="tag-chip" data-tag="scenario">Сценарные</button>
+          <button class="tag-chip" data-tag="male">Мужской POV</button>
+          <button class="tag-chip" data-tag="female">Женский POV</button>
+          <button class="tag-chip" data-tag="nonhuman">Нелюди</button>
+          <button class="tag-chip" data-tag="historical">Исторические</button>
+          <button class="tag-chip" data-tag="school">Школьные</button>
+          <button class="tag-chip" data-tag="office">Офисные</button>
+          <button class="tag-chip" data-tag="mafia">Мафия</button>
+          <button class="tag-chip" data-tag="detective">Детектив</button>
+          <button class="tag-chip" data-tag="vampire">Вампиры</button>
+          <button class="tag-chip" data-tag="robot">Роботы</button>
+          <button class="tag-chip" data-tag="scifi">Sci‑Fi</button>
+          <button class="tag-chip" data-tag="comedy">Комедия</button>
+          <button class="tag-chip" data-tag="angst">Ангст</button>
+          <button class="tag-chip" data-tag="royalty">Королевские</button>
+          <button class="tag-chip" data-tag="monster">Монстры</button>
+          <button class="tag-chip" data-tag="assistant">Ассистенты</button>
+          <button class="tag-chip" data-tag="politics">Политика</button>
+          <button class="tag-chip" data-tag="religion">Религия</button>
+          <button class="tag-chip" data-tag="beginning">Для новичков</button>
+          <button class="tag-chip" data-tag="music">Музыкальные</button>
+          <button class="tag-chip" data-tag="wlw">WLW</button>
+          <button class="tag-chip" data-tag="mlm">MLM</button>
+          <button class="tag-chip" data-tag="poly">Полиамория</button>
+        </div>
+        <button type="button" class="tags-icon-btn" id="toggleTagsBtn" aria-label="Свернуть панель">▴</button>
       </div>
     </section>
 
@@ -63,25 +88,32 @@
         <h2>Фильтры</h2>
 
         <div class="filter-group">
+          <div class="filter-title">Доступность</div>
+          <label class="filter-check">
+            <input type="checkbox" id="only16" />
+            <span></span>
+            Только 16+
+          </label>
+        </div>
+
+        <div class="filter-group">
           <div class="filter-title">Сортировка</div>
+          <select id="sortSelect">
+            <option value="popular">Популярные</option>
+            <option value="new">Новые</option>
+            <option value="name">По имени</option>
+            <option value="author">По автору</option>
+          </select>
+        </div>
 
-          <label class="filter-radio">
-            <input type="radio" name="sort" value="new" checked />
-            <span></span>
-            Новые
-          </label>
+        <div class="filter-group">
+          <div class="filter-title">Сообщения</div>
+          <input id="messagesMin" type="number" min="0" class="filter-input" placeholder="Не меньше" />
+        </div>
 
-          <label class="filter-radio">
-            <input type="radio" name="sort" value="name" />
-            <span></span>
-            По имени
-          </label>
-
-          <label class="filter-radio">
-            <input type="radio" name="sort" value="author" />
-            <span></span>
-            По автору
-          </label>
+        <div class="filter-group">
+          <div class="filter-title">Токены</div>
+          <input id="tokensMin" type="number" min="0" class="filter-input" placeholder="Не меньше" />
         </div>
 
         <button class="reset-btn" id="resetFiltersBtn" type="button">
@@ -95,7 +127,11 @@
             <h2>Персонажи</h2>
             <p id="foundText">Найдено: 0</p>
           </div>
-
+          <div class="quick-filters" id="quickFilters">
+            <button type="button" class="quick-chip active" data-quick="all">Все</button>
+            <button type="button" class="quick-chip" data-quick="limited">Только 16+</button>
+            <button type="button" class="quick-chip" data-quick="favorites">Избранные</button>
+          </div>
         </div>
 
         <div class="status-box" id="statusBox">
@@ -124,21 +160,31 @@
     const foundText = document.getElementById("foundText");
     const statusBox = document.getElementById("statusBox");
     const topAvatar = document.getElementById("topAvatar");
+    const only16 = document.getElementById("only16");
+    const sortSelect = document.getElementById("sortSelect");
+    const messagesMin = document.getElementById("messagesMin");
+    const tokensMin = document.getElementById("tokensMin");
+    const quickFilters = document.getElementById("quickFilters");
+    const clearTagsBtn = document.getElementById("clearTagsBtn");
+    const toggleTagsBtn = document.getElementById("toggleTagsBtn");
 
     let allBots = [];
-    let activeTag = "all";
+    let activeTags = new Set();
+    let isAllTagsSelected = false;
+    let quickFilter = "all";
+    let isTagsCollapsed = false;
 
-    if (savedUser?.avatar_url) {
-      topAvatar.src = savedUser.avatar_url;
+    const savedAvatar =
+      localStorage.getItem(`profileAvatar_${savedUser?.id || ""}`) ||
+      savedUser?.avatar_url ||
+      "";
+
+    if (savedAvatar) {
+      topAvatar.src = savedAvatar;
     }
 
     function normalizeText(value) {
       return String(value || "").toLowerCase().trim();
-    }
-
-    function getSelectedRadio(name) {
-      const selected = document.querySelector(`input[name="${name}"]:checked`);
-      return selected ? selected.value : "all";
     }
 
     function escapeHtml(text) {
@@ -159,6 +205,26 @@
       return `./chat.html?id=${bot.id}`;
     }
 
+    function getFavoriteBotKey(botId) {
+      if (!savedUser?.id) return "";
+      return `favoriteBot_${savedUser.id}_${botId}`;
+    }
+
+    function isFavoriteBot(botId) {
+      const key = getFavoriteBotKey(botId);
+      return key ? localStorage.getItem(key) === "true" : false;
+    }
+
+    function syncActiveTagUI() {
+      tagCloud.querySelectorAll(".tag-chip").forEach((item) => {
+        if (item.dataset.tag === "all") {
+          item.classList.toggle("active", isAllTagsSelected);
+          return;
+        }
+        item.classList.toggle("active", activeTags.has(item.dataset.tag));
+      });
+    }
+
     function formatTags(tagsString) {
       if (!tagsString || !tagsString.trim()) return [];
 
@@ -171,22 +237,36 @@
 
     function translateTag(tag) {
       const map = {
-        fantasy: "Фэнтези",
         romance: "Романтика",
-        magic: "Магия",
-        villain: "Антагонист",
-        hero: "Герой",
-        anime: "Аниме",
-        story: "Сюжет",
-        oc: "ОС",
-        rp: "Ролевая игра",
-        adventure: "Приключения",
         drama: "Драма",
-        "sci-fi": "Научная фантастика",
-        mystery: "Мистика",
+        rp: "Ролевые сценарии",
+        dark: "Тёмные сюжеты",
+        fantasy: "Фэнтези",
+        anime: "Аниме",
+        adventure: "Приключения",
+        story: "Истории",
+        magic: "Фэнтези",
+        mystery: "Тёмные сюжеты",
+        villain: "Тёмные сюжеты",
+        hero: "Ролевые сценарии",
+        oc: "Ролевые сценарии",
+        "sci-fi": "Истории",
       };
       const normalized = String(tag || "").trim().toLowerCase();
       return map[normalized] || tag;
+    }
+
+    function isTagSelected(tag) {
+      if (!activeTags.size) return false;
+      const normalizedTag = normalizeText(tag);
+      return Array.from(activeTags).some((selected) => {
+        const normalizedSelected = normalizeText(selected);
+        return (
+          normalizedTag === normalizedSelected ||
+          normalizedTag.includes(normalizedSelected) ||
+          normalizedSelected.includes(normalizedTag)
+        );
+      });
     }
 
     function renderBots(items) {
@@ -209,7 +289,6 @@
         card.innerHTML = `
           <a href="${getBotUrl(bot)}" class="character-image">
             <img src="${getAvatar(bot)}" alt="${escapeHtml(bot.name)}" />
-            <span class="visibility-badge">16+</span>
           </a>
 
           <div class="character-body">
@@ -230,7 +309,15 @@
             <div class="character-tags">
               ${
                 tags.length
-                  ? tags.map((tag) => `<span>${escapeHtml(translateTag(tag))}</span>`).join("")
+                  ? tags
+                      .map((tag) => {
+                        const displayTag = translateTag(tag);
+                        const activeClass = isTagSelected(tag) || isTagSelected(displayTag)
+                          ? "active"
+                          : "";
+                        return `<span class="${activeClass}">${escapeHtml(displayTag)}</span>`;
+                      })
+                      .join("")
                   : `<span>Без тегов</span>`
               }
             </div>
@@ -248,7 +335,9 @@
 
     function applyFilters() {
       const query = normalizeText(globalSearchInput.value);
-      const sort = getSelectedRadio("sort");
+      const sort = sortSelect.value;
+      const minMessages = Number(messagesMin.value) || 0;
+      const minTokens = Number(tokensMin.value) || 0;
 
       let filtered = [...allBots];
 
@@ -266,11 +355,47 @@
         });
       }
 
-      if (activeTag !== "all") {
+      if (!isAllTagsSelected && activeTags.size > 0) {
         filtered = filtered.filter((bot) =>
-          normalizeText(bot.tags).includes(activeTag)
+          Array.from(activeTags).some((tag) =>
+            normalizeText(bot.tags).includes(normalizeText(tag))
+          )
         );
       }
+
+      if (only16.checked) {
+        filtered = filtered.filter((bot) => {
+          const haystack = normalizeText(`${bot.tags} ${bot.short_description} ${bot.full_description}`);
+          return (
+            haystack.includes("16+") ||
+            haystack.includes("18+") ||
+            haystack.includes("adult") ||
+            haystack.includes("nsfw") ||
+            haystack.includes("романтика") ||
+            haystack.includes("драма") ||
+            haystack.includes("rp")
+          );
+        });
+      }
+
+      if (quickFilter === "favorites") {
+        filtered = filtered.filter((bot) => isFavoriteBot(bot.id));
+      }
+
+      if (quickFilter === "limited") {
+        filtered = filtered.filter((bot) => {
+          const haystack = normalizeText(`${bot.tags} ${bot.short_description} ${bot.full_description}`);
+          return (
+            haystack.includes("16+") ||
+            haystack.includes("18+") ||
+            haystack.includes("adult") ||
+            haystack.includes("nsfw")
+          );
+        });
+      }
+
+      filtered = filtered.filter((bot) => Number(bot.messages_count || 0) >= minMessages);
+      filtered = filtered.filter((bot) => Number(bot.tokens_count || 0) >= minTokens);
 
       if (sort === "name") {
         filtered.sort((a, b) =>
@@ -290,6 +415,12 @@
           const dateB = new Date(b.created_at || 0).getTime();
           return dateB - dateA;
         });
+      }
+
+      if (sort === "popular") {
+        filtered.sort(
+          (a, b) => Number(b.tokens_count || 0) - Number(a.tokens_count || 0)
+        );
       }
 
       renderBots(filtered);
@@ -318,6 +449,8 @@
             avatar_url: "../img/icon.svg",
             tags: "fantasy, magic, story",
             visibility: "public",
+            messages_count: 120,
+            tokens_count: 5400,
             created_at: new Date().toISOString()
           },
           {
@@ -328,6 +461,8 @@
             avatar_url: "../img/icon.svg",
             tags: "mystery, drama, villain",
             visibility: "public",
+            messages_count: 88,
+            tokens_count: 4100,
             created_at: new Date().toISOString()
           }
         ];
@@ -349,35 +484,82 @@
     tagCloud.addEventListener("click", (e) => {
       const chip = e.target.closest(".tag-chip");
       if (!chip) return;
+      const selectedTag = chip.dataset.tag;
 
-      document.querySelectorAll(".tag-chip").forEach((item) => {
-        item.classList.remove("active");
-      });
+      if (selectedTag === "all") {
+        isAllTagsSelected = !isAllTagsSelected;
+        if (isAllTagsSelected) {
+          activeTags = new Set();
+        }
+        syncActiveTagUI();
+        applyFilters();
+        return;
+      }
 
-      chip.classList.add("active");
-      activeTag = chip.dataset.tag;
+      if (isAllTagsSelected) {
+        isAllTagsSelected = false;
+      }
+
+      if (activeTags.has(selectedTag)) {
+        activeTags.delete(selectedTag);
+      } else {
+        activeTags.add(selectedTag);
+      }
+
+      syncActiveTagUI();
       applyFilters();
     });
 
-    document.querySelectorAll("input[type='radio']").forEach((radio) => {
-      radio.addEventListener("change", applyFilters);
-    });
+    sortSelect.addEventListener("change", applyFilters);
+    only16.addEventListener("change", applyFilters);
+    messagesMin.addEventListener("input", applyFilters);
+    tokensMin.addEventListener("input", applyFilters);
 
     resetFiltersBtn.addEventListener("click", () => {
       globalSearchInput.value = "";
-      activeTag = "all";
-
-      document.querySelectorAll(".tag-chip").forEach((item) => {
-        item.classList.remove("active");
+      activeTags = new Set();
+      isAllTagsSelected = false;
+      quickFilter = "all";
+      only16.checked = false;
+      sortSelect.value = "popular";
+      messagesMin.value = "";
+      tokensMin.value = "";
+      syncActiveTagUI();
+      quickFilters.querySelectorAll(".quick-chip").forEach((chip) => {
+        chip.classList.toggle("active", chip.dataset.quick === "all");
       });
-
-      document.querySelector(".tag-chip[data-tag='all']").classList.add("active");
-
-      document.querySelector("input[name='sort'][value='new']").checked = true;
 
       applyFilters();
     });
 
+    quickFilters.addEventListener("click", (event) => {
+      const button = event.target.closest(".quick-chip");
+      if (!button) return;
+      quickFilter = button.dataset.quick || "all";
+      quickFilters.querySelectorAll(".quick-chip").forEach((chip) => {
+        chip.classList.toggle("active", chip === button);
+      });
+      applyFilters();
+    });
+
+    clearTagsBtn.addEventListener("click", () => {
+      activeTags = new Set();
+      isAllTagsSelected = false;
+      syncActiveTagUI();
+      applyFilters();
+    });
+
+    toggleTagsBtn.addEventListener("click", () => {
+      isTagsCollapsed = !isTagsCollapsed;
+      tagCloud.classList.toggle("collapsed", isTagsCollapsed);
+      toggleTagsBtn.textContent = isTagsCollapsed ? "▾" : "▴";
+      toggleTagsBtn.setAttribute(
+        "aria-label",
+        isTagsCollapsed ? "Показать все теги" : "Показать первый ряд"
+      );
+    });
+
+    syncActiveTagUI();
     loadBots();
   </script>
 </body>

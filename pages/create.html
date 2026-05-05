@@ -148,13 +148,11 @@
                   </button>
                 </div>
 
-                <div class="tag-suggestions" id="tagSuggestions">
-                  <button type="button" class="tag-suggest-btn" data-tag="fantasy">#fantasy</button>
-                  <button type="button" class="tag-suggest-btn" data-tag="rpg">#rpg</button>
-                  <button type="button" class="tag-suggest-btn" data-tag="anime">#anime</button>
-                  <button type="button" class="tag-suggest-btn" data-tag="romance">#romance</button>
-                  <button type="button" class="tag-suggest-btn" data-tag="dark">#dark</button>
-                </div>
+                <div class="tag-suggestions" id="tagSuggestions"></div>
+                <p class="tags-hint" id="tagsHint">
+                  Показываются все метки из поиска и существующих ботов. Нажми на метку, чтобы добавить.
+                </p>
+                <div id="tagsNotice" class="tags-notice" hidden></div>
 
                 <div id="tagsList" class="tags-list"></div>
               </div>
@@ -317,6 +315,7 @@
       const addTagBtn = document.getElementById("addTagBtn");
       const tagsList = document.getElementById("tagsList");
       const tagSuggestions = document.getElementById("tagSuggestions");
+      const tagsNotice = document.getElementById("tagsNotice");
       const submitBtn = document.querySelector(".create-btn");
       const pageTitle = document.querySelector(".page-title");
 
@@ -329,6 +328,7 @@
       document.querySelector(".submit-row").appendChild(deleteBtn);
 
       const tags = [];
+      const availableTags = new Set();
       let currentAvatarValue = "";
 
       function normalizeTag(rawTag) {
@@ -339,12 +339,166 @@
           .toLowerCase();
       }
 
+      function formatTagLabel(tag) {
+        const map = {
+          all: "Все",
+          adventure: "Приключения",
+          angst: "Ангст",
+          anime: "Аниме",
+          assistant: "Ассистент",
+          beginning: "Для новичков",
+          comedy: "Комедия",
+          dark: "Темные сюжеты",
+          detective: "Детектив",
+          dominant: "Доминант",
+          drama: "Драма",
+          enemies: "От ненависти до любви",
+          fantasy: "Фэнтези",
+          female: "Женский POV",
+          flirt: "Флирт",
+          hero: "Герой",
+          historical: "Исторические",
+          mafia: "Мафия",
+          magic: "Магия",
+          male: "Мужской POV",
+          mature: "18+",
+          mlm: "MLM",
+          monster: "Монстр",
+          music: "Музыкальные",
+          mystery: "Мистика",
+          nonhuman: "Нелюди",
+          oc: "Оригинальные персонажи",
+          office: "Офисные",
+          politics: "Политика",
+          poly: "Полиамория",
+          religion: "Религия",
+          robot: "Роботы",
+          romance: "Романтика",
+          rpg: "Ролевые сценарии",
+          scenario: "Сценарные",
+          scifi: "Sci-Fi",
+          slowburn: "Медленное развитие",
+          story: "Истории",
+          submissive: "Сабмиссив",
+          villain: "Злодей",
+          vampire: "Вампиры",
+          wlw: "WLW",
+        };
+        return map[tag] || tag.replace(/_/g, " ");
+      }
+
+      function splitRawTags(rawValue) {
+        return String(rawValue || "")
+          .split(",")
+          .map((item) => item.trim())
+          .filter(Boolean);
+      }
+
+      function showTagsNotice(text, type = "info") {
+        if (!tagsNotice) return;
+        tagsNotice.hidden = false;
+        tagsNotice.textContent = text;
+        tagsNotice.className = `tags-notice ${type}`;
+        window.clearTimeout(showTagsNotice.timer);
+        showTagsNotice.timer = window.setTimeout(() => {
+          tagsNotice.hidden = true;
+        }, 2200);
+      }
+
       function addTag(rawTag) {
-        const normalized = normalizeTag(rawTag);
-        if (!normalized) return;
-        if (!tags.includes(normalized)) {
-          tags.push(normalized);
+        const chunks = splitRawTags(rawTag);
+        if (!chunks.length) {
+          return { added: 0, duplicates: 0 };
         }
+
+        let added = 0;
+        let duplicates = 0;
+
+        chunks.forEach((chunk) => {
+          const normalized = normalizeTag(chunk);
+          if (!normalized) return;
+
+          availableTags.add(normalized);
+          if (!tags.includes(normalized)) {
+            tags.push(normalized);
+            added += 1;
+          } else {
+            duplicates += 1;
+          }
+        });
+
+        return { added, duplicates };
+      }
+
+      function renderTagSuggestions(filter = "") {
+        const normalizedFilter = normalizeTag(filter);
+        const allAvailable = Array.from(availableTags).sort((a, b) =>
+          a.localeCompare(b, "ru"),
+        );
+        const visible = normalizedFilter
+          ? allAvailable.filter((tag) => tag.includes(normalizedFilter))
+          : allAvailable;
+
+        tagSuggestions.innerHTML = "";
+
+        visible.forEach((tag) => {
+          const button = document.createElement("button");
+          button.type = "button";
+          button.className = "tag-suggest-btn";
+          if (tags.includes(tag)) {
+            button.classList.add("active");
+          }
+          button.dataset.tag = tag;
+          button.textContent = formatTagLabel(tag);
+          tagSuggestions.appendChild(button);
+        });
+
+        if (!visible.length) {
+          const empty = document.createElement("span");
+          empty.className = "tags-empty";
+          empty.textContent = "Нет меток по запросу";
+          tagSuggestions.appendChild(empty);
+        }
+      }
+
+      async function loadAvailableTags() {
+        try {
+          const searchResponse = await fetch("/pages/search.html");
+          if (searchResponse.ok) {
+            const searchHtml = await searchResponse.text();
+            const parser = new DOMParser();
+            const searchDoc = parser.parseFromString(searchHtml, "text/html");
+            searchDoc.querySelectorAll("#tagCloud .tag-chip[data-tag]").forEach((chip) => {
+              const tagValue = chip.getAttribute("data-tag") || "";
+              const normalized = normalizeTag(tagValue);
+              if (normalized && normalized !== "all") {
+                availableTags.add(normalized);
+              }
+            });
+          }
+        } catch (error) {
+          showTagsNotice("Не удалось загрузить метки из поиска", "warning");
+        }
+
+        try {
+          const response = await fetch("http://localhost:3000/all-bots");
+          if (response.ok) {
+            const data = await response.json();
+            const bots = Array.isArray(data) ? data : [];
+            bots.forEach((bot) => {
+              splitRawTags(bot.tags).forEach((tag) => {
+                const normalized = normalizeTag(tag);
+                if (normalized) {
+                  availableTags.add(normalized);
+                }
+              });
+            });
+          }
+        } catch (error) {
+          showTagsNotice("Не удалось загрузить метки из базы", "warning");
+        }
+
+        renderTagSuggestions();
       }
 
       function extractPromptMetadata(systemPrompt) {
@@ -517,6 +671,7 @@
 
         if (!tags.length) {
           previewTags.innerHTML = "<span>Нет тегов</span>";
+          renderTagSuggestions(tagInput.value);
           return;
         }
 
@@ -524,13 +679,13 @@
           const tagItem = document.createElement("div");
           tagItem.className = "tag-item";
           tagItem.innerHTML = `
-          <span>${tag}</span>
+          <span>${formatTagLabel(tag)}</span>
           <button type="button" data-index="${index}">×</button>
         `;
           tagsList.appendChild(tagItem);
 
           const previewTag = document.createElement("span");
-          previewTag.textContent = tag;
+          previewTag.textContent = formatTagLabel(tag);
           previewTags.appendChild(previewTag);
         });
 
@@ -541,19 +696,35 @@
             renderTags();
           });
         });
+
+        renderTagSuggestions(tagInput.value);
       }
 
       addTagBtn.addEventListener("click", () => {
-        addTag(tagInput.value);
+        const result = addTag(tagInput.value);
         tagInput.value = "";
+        renderTagSuggestions();
         renderTags();
+        if (result.added > 0) {
+          showTagsNotice(`Добавлено меток: ${result.added}`, "success");
+        } else if (result.duplicates > 0) {
+          showTagsNotice("Эти метки уже добавлены", "warning");
+        } else {
+          showTagsNotice("Введите метку для добавления", "warning");
+        }
       });
 
       tagSuggestions.addEventListener("click", (event) => {
         const button = event.target.closest("button[data-tag]");
         if (!button) return;
-        addTag(button.dataset.tag || "");
+        const result = addTag(button.dataset.tag || "");
+        renderTagSuggestions(tagInput.value);
         renderTags();
+        if (result.added > 0) {
+          showTagsNotice("Метка добавлена", "success");
+        } else {
+          showTagsNotice("Эта метка уже добавлена", "warning");
+        }
       });
 
       tagInput.addEventListener("keydown", (e) => {
@@ -561,6 +732,10 @@
           e.preventDefault();
           addTagBtn.click();
         }
+      });
+
+      tagInput.addEventListener("input", () => {
+        renderTagSuggestions(tagInput.value);
       });
 
       async function loadBotForEdit() {
@@ -761,7 +936,9 @@
         }
       });
 
-      renderTags();
+      loadAvailableTags().finally(() => {
+        renderTags();
+      });
       syncBioPlaceholder();
       loadBotForEdit();
     </script>

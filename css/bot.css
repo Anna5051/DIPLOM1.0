@@ -262,6 +262,9 @@ body {
 .primary-action,
 .secondary-action,
 .action-select {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   border: 1px solid rgba(169, 151, 255, 0.34);
   border-radius: 14px;
   color: #fff;
@@ -269,6 +272,8 @@ body {
   min-height: 46px;
   padding: 0 18px;
   font-size: 14px;
+  line-height: 1;
+  text-align: center;
   transition:
     transform 0.18s ease,
     background 0.18s ease,
