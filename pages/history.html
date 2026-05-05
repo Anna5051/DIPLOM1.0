@@ -71,8 +71,13 @@
 
     let chats = [];
 
-    if (savedUser.avatar_url) {
-      topAvatar.src = savedUser.avatar_url;
+    const savedAvatar =
+      localStorage.getItem(`profileAvatar_${savedUser.id}`) ||
+      savedUser.avatar_url ||
+      "";
+
+    if (savedAvatar) {
+      topAvatar.src = savedAvatar;
     }
 
     function escapeHtml(value) {

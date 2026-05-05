@@ -123,12 +123,12 @@ body {
 /* ---------- HERO ---------- */
 
 .hero-banner {
-  min-height: 300px;
+  min-height: 248px;
   border-radius: 24px;
   overflow: hidden;
 
   background:
-    linear-gradient(90deg, rgba(7, 8, 30, 0.9), rgba(7, 8, 30, 0.34)),
+    linear-gradient(90deg, rgba(7, 8, 30, 0.84), rgba(7, 8, 30, 0.46)),
     url("/img/Космический пейзаж с ноутбуком (6).png");
 
   background-size: cover;
@@ -154,7 +154,7 @@ body {
 
 .hero-content {
   max-width: 720px;
-  padding: 42px 40px;
+  padding: 30px 34px;
 }
 
 .hero-badge {
@@ -175,8 +175,8 @@ body {
   margin: 0 0 16px;
   max-width: 690px;
 
-  font-size: 44px;
-  line-height: 1.06;
+  font-size: 40px;
+  line-height: 1.08;
   letter-spacing: -1px;
 }
 
@@ -184,15 +184,15 @@ body {
   max-width: 570px;
   margin: 0;
 
-  color: #ded9ff;
-  font-size: 16px;
+  color: #d7d1f7;
+  font-size: 15px;
   line-height: 1.55;
 }
 
 .hero-actions {
   display: flex;
   gap: 12px;
-  margin-top: 24px;
+  margin-top: 18px;
   flex-wrap: wrap;
 }
 
@@ -636,15 +636,15 @@ body {
   }
 
   .hero-banner {
-    min-height: 300px;
+    min-height: 220px;
   }
 
   .hero-content {
-    padding: 32px 24px;
+    padding: 24px 20px;
   }
 
   .hero-content h1 {
-    font-size: 31px;
+    font-size: 28px;
   }
 
   .section-title {

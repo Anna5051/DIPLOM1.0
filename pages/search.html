@@ -37,52 +37,30 @@
     <section class="tags-panel">
       <div class="tags-head">
         <h1>Каталог персонажей</h1>
-        <p>Ищи персонажей по тегам, имени, автору или описанию.</p>
+        <p>Ищи персонажей по меткам, имени и автору. Только 16+.</p>
       </div>
 
       <div class="tag-cloud" id="tagCloud">
-        <button class="tag-chip active" data-tag="all">Все</button>
-        <button class="tag-chip" data-tag="fantasy">Fantasy</button>
-        <button class="tag-chip" data-tag="romance">Romance</button>
-        <button class="tag-chip" data-tag="magic">Magic</button>
-        <button class="tag-chip" data-tag="villain">Villain</button>
-        <button class="tag-chip" data-tag="hero">Hero</button>
-        <button class="tag-chip" data-tag="anime">Anime</button>
-        <button class="tag-chip" data-tag="story">Story</button>
-        <button class="tag-chip" data-tag="oc">OC</button>
-        <button class="tag-chip" data-tag="rp">RP</button>
-        <button class="tag-chip" data-tag="adventure">Adventure</button>
-        <button class="tag-chip" data-tag="drama">Drama</button>
-        <button class="tag-chip" data-tag="sci-fi">Sci-Fi</button>
-        <button class="tag-chip" data-tag="mystery">Mystery</button>
+        <button class="tag-chip active" data-tag="all">Все 16+</button>
+        <button class="tag-chip" data-tag="fantasy">Фэнтези</button>
+        <button class="tag-chip" data-tag="romance">Романтика</button>
+        <button class="tag-chip" data-tag="magic">Магия</button>
+        <button class="tag-chip" data-tag="villain">Антагонист</button>
+        <button class="tag-chip" data-tag="hero">Герой</button>
+        <button class="tag-chip" data-tag="anime">Аниме</button>
+        <button class="tag-chip" data-tag="story">Сюжет</button>
+        <button class="tag-chip" data-tag="oc">ОС</button>
+        <button class="tag-chip" data-tag="rp">Ролевая игра</button>
+        <button class="tag-chip" data-tag="adventure">Приключения</button>
+        <button class="tag-chip" data-tag="drama">Драма</button>
+        <button class="tag-chip" data-tag="sci-fi">Научная фантастика</button>
+        <button class="tag-chip" data-tag="mystery">Мистика</button>
       </div>
     </section>
 
     <section class="search-layout">
       <aside class="filters-card">
         <h2>Фильтры</h2>
-
-        <div class="filter-group">
-          <div class="filter-title">Доступность</div>
-
-          <label class="filter-radio">
-            <input type="radio" name="visibility" value="all" checked />
-            <span></span>
-            Все
-          </label>
-
-          <label class="filter-radio">
-            <input type="radio" name="visibility" value="public" />
-            <span></span>
-            Публичные
-          </label>
-
-          <label class="filter-radio">
-            <input type="radio" name="visibility" value="private" />
-            <span></span>
-            Приватные
-          </label>
-        </div>
 
         <div class="filter-group">
           <div class="filter-title">Сортировка</div>
@@ -106,16 +84,6 @@
           </label>
         </div>
 
-        <div class="filter-group">
-          <div class="filter-title">Длина описания</div>
-
-          <select id="descriptionFilter">
-            <option value="all">Любая</option>
-            <option value="short">Короткая</option>
-            <option value="long">Подробная</option>
-          </select>
-        </div>
-
         <button class="reset-btn" id="resetFiltersBtn" type="button">
           Сбросить фильтры
         </button>
@@ -128,10 +96,6 @@
             <p id="foundText">Найдено: 0</p>
           </div>
 
-          <div class="view-actions">
-            <button class="view-btn active" type="button" id="gridViewBtn">▦</button>
-            <button class="view-btn" type="button" id="compactViewBtn">☰</button>
-          </div>
         </div>
 
         <div class="status-box" id="statusBox">
@@ -155,18 +119,14 @@
     const globalSearchInput = document.getElementById("globalSearchInput");
     const topSearchForm = document.getElementById("topSearchForm");
     const tagCloud = document.getElementById("tagCloud");
-    const descriptionFilter = document.getElementById("descriptionFilter");
     const resetFiltersBtn = document.getElementById("resetFiltersBtn");
     const charactersGrid = document.getElementById("charactersGrid");
     const foundText = document.getElementById("foundText");
     const statusBox = document.getElementById("statusBox");
-    const gridViewBtn = document.getElementById("gridViewBtn");
-    const compactViewBtn = document.getElementById("compactViewBtn");
     const topAvatar = document.getElementById("topAvatar");
 
     let allBots = [];
     let activeTag = "all";
-    let compactMode = false;
 
     if (savedUser?.avatar_url) {
       topAvatar.src = savedUser.avatar_url;
@@ -209,6 +169,26 @@
         .slice(0, 4);
     }
 
+    function translateTag(tag) {
+      const map = {
+        fantasy: "Фэнтези",
+        romance: "Романтика",
+        magic: "Магия",
+        villain: "Антагонист",
+        hero: "Герой",
+        anime: "Аниме",
+        story: "Сюжет",
+        oc: "ОС",
+        rp: "Ролевая игра",
+        adventure: "Приключения",
+        drama: "Драма",
+        "sci-fi": "Научная фантастика",
+        mystery: "Мистика",
+      };
+      const normalized = String(tag || "").trim().toLowerCase();
+      return map[normalized] || tag;
+    }
+
     function renderBots(items) {
       charactersGrid.innerHTML = "";
       foundText.textContent = `Найдено: ${items.length}`;
@@ -224,12 +204,12 @@
       items.forEach((bot) => {
         const tags = formatTags(bot.tags);
         const card = document.createElement("article");
-        card.className = compactMode ? "character-card compact" : "character-card";
+        card.className = "character-card";
 
         card.innerHTML = `
           <a href="${getBotUrl(bot)}" class="character-image">
             <img src="${getAvatar(bot)}" alt="${escapeHtml(bot.name)}" />
-            <span class="visibility-badge">${escapeHtml(bot.visibility || "public")}</span>
+            <span class="visibility-badge">16+</span>
           </a>
 
           <div class="character-body">
@@ -250,7 +230,7 @@
             <div class="character-tags">
               ${
                 tags.length
-                  ? tags.map((tag) => `<span>${escapeHtml(tag)}</span>`).join("")
+                  ? tags.map((tag) => `<span>${escapeHtml(translateTag(tag))}</span>`).join("")
                   : `<span>Без тегов</span>`
               }
             </div>
@@ -268,9 +248,7 @@
 
     function applyFilters() {
       const query = normalizeText(globalSearchInput.value);
-      const visibility = getSelectedRadio("visibility");
       const sort = getSelectedRadio("sort");
-      const descFilter = descriptionFilter.value;
 
       let filtered = [...allBots];
 
@@ -291,24 +269,6 @@
       if (activeTag !== "all") {
         filtered = filtered.filter((bot) =>
           normalizeText(bot.tags).includes(activeTag)
-        );
-      }
-
-      if (visibility !== "all") {
-        filtered = filtered.filter((bot) =>
-          normalizeText(bot.visibility || "public") === visibility
-        );
-      }
-
-      if (descFilter === "short") {
-        filtered = filtered.filter((bot) =>
-          String(bot.short_description || "").length <= 120
-        );
-      }
-
-      if (descFilter === "long") {
-        filtered = filtered.filter((bot) =>
-          String(bot.short_description || "").length > 120
         );
       }
 
@@ -403,12 +363,9 @@
       radio.addEventListener("change", applyFilters);
     });
 
-    descriptionFilter.addEventListener("change", applyFilters);
-
     resetFiltersBtn.addEventListener("click", () => {
       globalSearchInput.value = "";
       activeTag = "all";
-      descriptionFilter.value = "all";
 
       document.querySelectorAll(".tag-chip").forEach((item) => {
         item.classList.remove("active");
@@ -416,23 +373,8 @@
 
       document.querySelector(".tag-chip[data-tag='all']").classList.add("active");
 
-      document.querySelector("input[name='visibility'][value='all']").checked = true;
       document.querySelector("input[name='sort'][value='new']").checked = true;
 
-      applyFilters();
-    });
-
-    gridViewBtn.addEventListener("click", () => {
-      compactMode = false;
-      gridViewBtn.classList.add("active");
-      compactViewBtn.classList.remove("active");
-      applyFilters();
-    });
-
-    compactViewBtn.addEventListener("click", () => {
-      compactMode = true;
-      compactViewBtn.classList.add("active");
-      gridViewBtn.classList.remove("active");
       applyFilters();
     });
 

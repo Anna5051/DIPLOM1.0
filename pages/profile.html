@@ -305,6 +305,11 @@
         }
       }
 
+      function getStoredProfileAvatar(profileId) {
+        if (!profileId) return "";
+        return localStorage.getItem(`profileAvatar_${profileId}`) || "";
+      }
+
       const savedAvatar = localStorage.getItem(avatarStorageKey);
       const userAvatar = savedUser.avatar_url || "";
 
@@ -610,12 +615,15 @@
           });
 
           const sample = matchedBots[0];
+          const resolvedAuthorId =
+            sample?.creator_id || sample?.author_id || externalAuthorId || null;
+          const storedAuthorAvatar = getStoredProfileAvatar(resolvedAuthorId);
           viewedProfile = {
-            id: sample?.creator_id || sample?.author_id || externalAuthorId || null,
+            id: resolvedAuthorId,
             username:
               sample?.author_name || sample?.author || externalUsername || "unknown",
             created_at: sample?.created_at || null,
-            avatar_url: sample?.avatar_url || "",
+            avatar_url: storedAuthorAvatar || "",
           };
 
           applyProfileBaseData(viewedProfile);

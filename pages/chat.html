@@ -26,11 +26,36 @@
     </div>
 
     <div id="dropdownMenu" class="dropdown-menu">
-      <button type="button" id="openPersonaModalBtn">👤 Выбрать персону</button>
-      <button type="button" id="newChatBtn">💬 Новый чат</button>
-      <a href="/pages/history.html">📚 Все чаты</a>
-      <a href="/pages/person.html">🧩 Мои персоны</a>
-      <button type="button" id="clearChatBtn">🗑 Очистить чат</button>
+      <button type="button" id="openPersonaModalBtn">
+        <span class="menu-icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24"><path d="M12 12a5 5 0 1 0-5-5 5 5 0 0 0 5 5zm0 2c-4.42 0-8 1.79-8 4v2h16v-2c0-2.21-3.58-4-8-4z"/></svg>
+        </span>
+        Выбрать персону
+      </button>
+      <button type="button" id="newChatBtn">
+        <span class="menu-icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24"><path d="M4 4h16v11H7l-3 3V4zm4 5h8v2H8V9z"/></svg>
+        </span>
+        Новый чат
+      </button>
+      <a href="/pages/history.html">
+        <span class="menu-icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24"><path d="M4 4h6v6H4V4zm10 0h6v6h-6V4zM4 14h6v6H4v-6zm10 0h6v6h-6v-6z"/></svg>
+        </span>
+        Все чаты
+      </a>
+      <a href="/pages/person.html">
+        <span class="menu-icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24"><path d="M12 3a4 4 0 0 1 4 4c0 1.64-.99 3.05-2.4 3.67A5 5 0 0 1 18 15v5h-2v-5a3 3 0 0 0-6 0v5H8v-5a5 5 0 0 1 4.4-4.96A3.99 3.99 0 0 1 8 7a4 4 0 0 1 4-4z"/></svg>
+        </span>
+        Мои персоны
+      </a>
+      <button type="button" id="clearChatBtn">
+        <span class="menu-icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24"><path d="M9 3h6l1 2h4v2H4V5h4l1-2zm1 6h2v9h-2V9zm4 0h2v9h-2V9zM7 9h2v9H7V9z"/></svg>
+        </span>
+        Очистить чат
+      </button>
     </div>
   </header>
 
@@ -49,8 +74,7 @@
 
       <div class="modal-actions">
         <a href="/pages/person.html" class="secondary-btn">Управлять</a>
-        <button id="withoutPersonaBtn" class="ghost-btn" type="button">Без персоны</button>
-        <button id="confirmPersonaBtn" class="secondary-btn" type="button">Подтвердить</button>
+        <span class="modal-tip">Выбор применяется автоматически</span>
       </div>
     </div>
   </div>
@@ -85,6 +109,8 @@
       <button type="submit" class="send-btn">➤</button>
     </form>
   </main>
+
+  <div id="pageToast" class="page-toast hidden" role="status" aria-live="polite"></div>
 
   <script>
     const API_BASE = "http://127.0.0.1:3000";
@@ -127,11 +153,10 @@
 
     const openPersonaModalBtn = document.getElementById("openPersonaModalBtn");
     const closePersonaModalBtn = document.getElementById("closePersonaModalBtn");
-    const withoutPersonaBtn = document.getElementById("withoutPersonaBtn");
-    const confirmPersonaBtn = document.getElementById("confirmPersonaBtn");
 
     const clearChatBtn = document.getElementById("clearChatBtn");
     const newChatBtn = document.getElementById("newChatBtn");
+    const pageToast = document.getElementById("pageToast");
 
     let currentChatId = null;
     let currentBot = null;
@@ -165,6 +190,22 @@
       messagesBox.innerHTML = `
         <div class="message-empty">${escapeHtml(text)}</div>
       `;
+    }
+
+    let toastTimer = null;
+    function showToast(text) {
+      pageToast.textContent = text;
+      pageToast.classList.remove("hidden");
+      pageToast.classList.add("show");
+
+      if (toastTimer) {
+        clearTimeout(toastTimer);
+      }
+
+      toastTimer = setTimeout(() => {
+        pageToast.classList.remove("show");
+        pageToast.classList.add("hidden");
+      }, 2200);
     }
 
     function setActivePersona(persona) {
@@ -232,19 +273,32 @@
         const isSelected =
           selectedPersonaInModal &&
           Number(selectedPersonaInModal.id) === Number(persona.id);
+        const fullDescription = String(persona.description || "Без описания");
+        const shortDescription =
+          fullDescription.length > 140
+            ? `${fullDescription.slice(0, 140)}...`
+            : fullDescription;
 
         const item = document.createElement("button");
         item.type = "button";
         item.className = isSelected
           ? "persona-option active"
           : "persona-option";
+        item.dataset.fullDescription = fullDescription;
+        item.dataset.shortDescription = shortDescription;
+        item.dataset.expanded = "0";
 
         item.innerHTML = `
           <img src="${escapeHtml(persona.avatar_url || "/img/icon.svg")}" alt="persona" />
 
           <div class="persona-option-info">
             <strong>${escapeHtml(persona.name)}</strong>
-            <span>${escapeHtml(persona.description || "Без описания")}</span>
+            <span class="persona-option-description">${escapeHtml(shortDescription)}</span>
+            ${
+              fullDescription.length > 140
+                ? '<span class="persona-more" role="button">Показать ещё</span>'
+                : ""
+            }
           </div>
 
           <div class="persona-radio"></div>
@@ -252,8 +306,29 @@
 
         item.addEventListener("click", () => {
           selectedPersonaInModal = persona;
+          setActivePersona(persona);
           renderPersonas();
+          closePersonaModal();
         });
+
+        const moreBtn = item.querySelector(".persona-more");
+        if (moreBtn) {
+          moreBtn.addEventListener("click", (event) => {
+            event.stopPropagation();
+            const descEl = item.querySelector(".persona-option-description");
+            const expanded = item.dataset.expanded === "1";
+
+            if (expanded) {
+              descEl.textContent = item.dataset.shortDescription;
+              moreBtn.textContent = "Показать ещё";
+              item.dataset.expanded = "0";
+            } else {
+              descEl.textContent = item.dataset.fullDescription;
+              moreBtn.textContent = "Скрыть";
+              item.dataset.expanded = "1";
+            }
+          });
+        }
 
         personasList.appendChild(item);
       });
@@ -435,22 +510,6 @@
     openPersonaModalBtn.addEventListener("click", openPersonaModal);
     closePersonaModalBtn.addEventListener("click", closePersonaModal);
 
-    withoutPersonaBtn.addEventListener("click", () => {
-      selectedPersonaInModal = null;
-      setActivePersona(null);
-      closePersonaModal();
-    });
-
-    confirmPersonaBtn.addEventListener("click", () => {
-      if (!selectedPersonaInModal) {
-        alert("Выберите персону");
-        return;
-      }
-
-      setActivePersona(selectedPersonaInModal);
-      closePersonaModal();
-    });
-
     clearChatBtn.addEventListener("click", async () => {
       if (!currentChatId) {
         alert("Чат ещё не загружен");
@@ -477,7 +536,8 @@
           throw new Error(data.message || "Ошибка очистки чата");
         }
 
-        renderEmpty("Сообщения удалены");
+        renderEmpty("Сообщений пока нет");
+        showToast("Сообщения удалены");
         dropdownMenu.classList.remove("open");
       } catch (error) {
         console.error(error);
