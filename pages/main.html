@@ -454,7 +454,14 @@ function renderBots(items) {
     await loadMyChats();
     await loadMyBots();
     await loadAllBots();
-    activateTab("my");
+    const tab = new URLSearchParams(window.location.search).get("tab");
+    if (tab === "favorites") {
+      activateTab("favorites");
+    } else if (tab === "all") {
+      activateTab("all");
+    } else {
+      activateTab("my");
+    }
   })();
 
   document.body.classList.add("page-transition");

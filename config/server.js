@@ -37,7 +37,6 @@ function requireAdmin(req, res, next) {
 
   db.query(sql, [userId], (err, rows) => {
     if (err) {
-      console.error("ADMIN CHECK ERROR:", err);
       return res.status(500).json({
         message: "Ошибка проверки доступа",
       });
@@ -62,6 +61,13 @@ function requireAdmin(req, res, next) {
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const PASSWORD_MIN_LENGTH = 8;
 const BCRYPT_ROUNDS = 10;
+const {
+  CHAT_HISTORY_LIMIT,
+  MAX_USER_MESSAGE_LENGTH,
+  mapMessagesToOllamaHistory,
+  generateBotReply,
+  buildBotReplyFromHistory,
+} = require("./aiChat");
 let hasEmailConfirmedColumnCache = null;
 
 function getString(value) {
@@ -74,6 +80,38 @@ function isValidPassword(password) {
     /[A-Za-z]/.test(password) &&
     /\d/.test(password)
   );
+}
+
+function dbQuery(sql, params = []) {
+  return new Promise((resolve, reject) => {
+    db.query(sql, params, (err, rows) => {
+      if (err) return reject(err);
+      resolve(rows);
+    });
+  });
+}
+
+async function getOwnedChat(chatId, userId) {
+  const rows = await dbQuery(
+    `
+      SELECT
+        c.id,
+        c.user_id,
+        c.bot_id,
+        b.name AS bot_name,
+        b.system_prompt AS bot_system_prompt
+      FROM chats c
+      LEFT JOIN bots b ON c.bot_id = b.id
+      WHERE c.id = ?
+      LIMIT 1
+    `,
+    [chatId],
+  );
+
+  if (!rows.length) return null;
+  const chat = rows[0];
+  if (Number(chat.user_id) !== Number(userId)) return "forbidden";
+  return chat;
 }
 
 function hasEmailConfirmedColumn(callback) {
@@ -126,7 +164,6 @@ app.post("/register", (req, res) => {
 
   db.query(checkSql, [email], (err, result) => {
     if (err) {
-      console.error("REGISTER CHECK ERROR:", err);
       return res.status(500).json({
         message: "Ошибка базы данных",
       });
@@ -140,7 +177,6 @@ app.post("/register", (req, res) => {
 
     hasEmailConfirmedColumn((columnErr, hasEmailConfirmedColumn) => {
       if (columnErr) {
-        console.error("REGISTER COLUMN CHECK ERROR:", columnErr);
         return res.status(500).json({
           message: "Ошибка регистрации",
         });
@@ -148,7 +184,6 @@ app.post("/register", (req, res) => {
 
       bcrypt.hash(password, BCRYPT_ROUNDS, (hashErr, passwordHash) => {
         if (hashErr) {
-          console.error("REGISTER HASH ERROR:", hashErr);
           return res.status(500).json({
             message: "Ошибка регистрации",
           });
@@ -166,7 +201,6 @@ app.post("/register", (req, res) => {
 
         db.query(insertSql, [username, email, passwordHash], (insertErr) => {
           if (insertErr) {
-            console.error("REGISTER INSERT ERROR:", insertErr);
             return res.status(500).json({
               message: "Ошибка регистрации",
             });
@@ -194,7 +228,6 @@ app.post("/login", (req, res) => {
 
   hasEmailConfirmedColumn((columnErr, hasEmailConfirmedColumn) => {
     if (columnErr) {
-      console.error("LOGIN COLUMN CHECK ERROR:", columnErr);
       return res.status(500).json({
         message: "Ошибка авторизации",
       });
@@ -216,7 +249,6 @@ app.post("/login", (req, res) => {
 
     db.query(sql, [email], (err, result) => {
       if (err) {
-        console.error("LOGIN ERROR:", err);
         return res.status(500).json({
           message: "Ошибка авторизации",
         });
@@ -232,7 +264,6 @@ app.post("/login", (req, res) => {
 
       bcrypt.compare(password, user.password_hash, (compareErr, isPasswordValid) => {
         if (compareErr) {
-          console.error("LOGIN COMPARE ERROR:", compareErr);
           return res.status(500).json({
             message: "Ошибка авторизации",
           });
@@ -266,7 +297,6 @@ app.post("/login", (req, res) => {
         if (user.password_hash === password) {
           return bcrypt.hash(password, BCRYPT_ROUNDS, (hashErr, upgradedHash) => {
             if (hashErr) {
-              console.error("LOGIN LEGACY HASH ERROR:", hashErr);
               return res.status(500).json({
                 message: "Ошибка авторизации",
               });
@@ -277,7 +307,6 @@ app.post("/login", (req, res) => {
               [upgradedHash, user.id],
               (updateErr) => {
                 if (updateErr) {
-                  console.error("LOGIN LEGACY UPDATE ERROR:", updateErr);
                   return res.status(500).json({
                     message: "Ошибка авторизации",
                   });
@@ -322,7 +351,6 @@ function updateUserAvatar(req, res) {
 
   db.query(sql, [avatarUrl, userId], (err, result) => {
     if (err) {
-      console.error("UPDATE AVATAR ERROR:", err);
       return res.status(500).json({
         message: "Ошибка сохранения аватара",
       });
@@ -397,7 +425,6 @@ app.post("/create-bot", (req, res) => {
     ],
     (err, result) => {
       if (err) {
-        console.error("CREATE BOT ERROR:", err);
         return res.status(500).json({
           message: "Ошибка создания персонажа",
         });
@@ -436,7 +463,6 @@ app.get("/my-bots/:userId", (req, res) => {
 
   db.query(sql, [userId], (err, result) => {
     if (err) {
-      console.error("MY BOTS ERROR:", err);
       return res.status(500).json({
         message: "Ошибка загрузки персонажей",
       });
@@ -474,7 +500,6 @@ app.get("/bot/:id", (req, res) => {
 
   db.query(sql, [id], (err, result) => {
     if (err) {
-      console.error("GET BOT ERROR:", err);
       return res.status(500).json({
         message: "Ошибка загрузки персонажа",
       });
@@ -522,7 +547,6 @@ app.put("/bot/:id", (req, res) => {
 
   db.query(checkSql, [id], (err, result) => {
     if (err) {
-      console.error("CHECK BOT ERROR:", err);
       return res.status(500).json({
         message: "Ошибка проверки бота",
       });
@@ -572,7 +596,6 @@ app.put("/bot/:id", (req, res) => {
       ],
       (updateErr) => {
         if (updateErr) {
-          console.error("UPDATE BOT ERROR:", updateErr);
           return res.status(500).json({
             message: "Ошибка обновления бота",
           });
@@ -606,7 +629,6 @@ app.delete("/bot/:id", (req, res) => {
 
   db.query(checkSql, [id], (err, result) => {
     if (err) {
-      console.error("DELETE CHECK BOT ERROR:", err);
       return res.status(500).json({
         message: "Ошибка проверки бота",
       });
@@ -635,7 +657,6 @@ app.delete("/bot/:id", (req, res) => {
 
     db.query(deleteMessagesSql, [id], (messagesErr) => {
       if (messagesErr) {
-        console.error("DELETE BOT MESSAGES ERROR:", messagesErr);
         return res.status(500).json({
           message: "Ошибка удаления сообщений",
         });
@@ -645,7 +666,6 @@ app.delete("/bot/:id", (req, res) => {
 
       db.query(deleteChatsSql, [id], (chatsErr) => {
         if (chatsErr) {
-          console.error("DELETE BOT CHATS ERROR:", chatsErr);
           return res.status(500).json({
             message: "Ошибка удаления чатов",
           });
@@ -655,7 +675,6 @@ app.delete("/bot/:id", (req, res) => {
 
         db.query(deleteBotSql, [id], (deleteErr) => {
           if (deleteErr) {
-            console.error("DELETE BOT ERROR:", deleteErr);
             return res.status(500).json({
               message: "Ошибка удаления бота",
             });
@@ -691,7 +710,6 @@ app.get("/chat-by-bot/:botId", (req, res) => {
 
   db.query(getBotSql, [botId], (botErr, botRows) => {
     if (botErr) {
-      console.error("GET BOT FOR CHAT ERROR:", botErr);
       return res.status(500).json({
         message: "Ошибка загрузки бота",
       });
@@ -723,7 +741,6 @@ const createNewChat = req.query.new === "1";
 
     db.query(findChatSql, [userId, botId], (chatErr, chatRows) => {
       if (chatErr) {
-        console.error("FIND CHAT ERROR:", chatErr);
         return res.status(500).json({
           message: "Ошибка поиска чата",
         });
@@ -744,7 +761,6 @@ const createNewChat = req.query.new === "1";
 
         db.query(messagesSql, [chat.id], (msgErr, msgRows) => {
           if (msgErr) {
-            console.error("GET MESSAGES ERROR:", msgErr);
             return res.status(500).json({
               message: "Ошибка загрузки сообщений",
             });
@@ -782,7 +798,6 @@ const createNewChat = req.query.new === "1";
         [userId, botId, `Чат с ${bot.name}`],
         (insertErr, insertResult) => {
           if (insertErr) {
-            console.error("CREATE CHAT ERROR:", insertErr);
             return res.status(500).json({
               message: "Ошибка создания чата",
             });
@@ -815,7 +830,6 @@ const createNewChat = req.query.new === "1";
               [newChat.id, bot.greeting_message],
               (greetErr) => {
                 if (greetErr) {
-                  console.error("SAVE GREETING ERROR:", greetErr);
                   return res.status(500).json({
                     message: "Чат создан, но приветствие не сохранилось",
                   });
@@ -859,7 +873,6 @@ app.get("/chat/:chatId", (req, res) => {
 
   db.query(chatSql, [chatId], (chatErr, chatRows) => {
     if (chatErr) {
-      console.error("GET CHAT ERROR:", chatErr);
       return res.status(500).json({
         message: "Ошибка загрузки чата",
       });
@@ -887,7 +900,6 @@ app.get("/chat/:chatId", (req, res) => {
 
     db.query(messagesSql, [chatId], (msgErr, msgRows) => {
       if (msgErr) {
-        console.error("GET CHAT MESSAGES ERROR:", msgErr);
         return res.status(500).json({
           message: "Ошибка загрузки сообщений",
         });
@@ -910,11 +922,18 @@ app.get("/chat/:chatId", (req, res) => {
 /*отправка сообщений*/
 app.post("/chat/:chatId/message", (req, res) => {
   const { chatId } = req.params;
-  const { text } = req.body;
+  const { text, persona_prompt, persona_name } = req.body;
+  const normalizedText = String(text || "").trim();
 
-  if (!text || !text.trim()) {
+  if (!normalizedText) {
     return res.status(400).json({
       message: "Пустое сообщение",
+    });
+  }
+
+  if (normalizedText.length > MAX_USER_MESSAGE_LENGTH) {
+    return res.status(400).json({
+      message: `Сообщение слишком длинное (максимум ${MAX_USER_MESSAGE_LENGTH} символов)`,
     });
   }
 
@@ -922,7 +941,8 @@ app.post("/chat/:chatId/message", (req, res) => {
     SELECT
       c.id,
       c.bot_id,
-      b.name AS bot_name
+      b.name AS bot_name,
+      b.system_prompt AS bot_system_prompt
     FROM chats c
     LEFT JOIN bots b ON c.bot_id = b.id
     WHERE c.id = ?
@@ -931,7 +951,6 @@ app.post("/chat/:chatId/message", (req, res) => {
 
   db.query(getChatSql, [chatId], (chatErr, chatRows) => {
     if (chatErr) {
-      console.error("CHECK CHAT ERROR:", chatErr);
       return res.status(500).json({
         message: "Ошибка проверки чата",
       });
@@ -956,17 +975,288 @@ app.post("/chat/:chatId/message", (req, res) => {
       VALUES (?, 'user', ?, NOW())
     `;
 
-    db.query(saveUserMessageSql, [chatId, text.trim()], (saveUserErr) => {
+    db.query(saveUserMessageSql, [chatId, normalizedText], (saveUserErr, saveUserResult) => {
       if (saveUserErr) {
-        console.error("SAVE USER MESSAGE ERROR:", saveUserErr);
         return res.status(500).json({
           message: "Ошибка сохранения сообщения пользователя",
         });
       }
 
-      const botReply = `Ответ персонажа ${chat.bot_name}: ${text.trim()}`;
+      const historySql = `
+        SELECT
+          sender_type,
+          content
+        FROM messages
+        WHERE chat_id = ?
+        ORDER BY created_at DESC, id DESC
+        LIMIT ?
+      `;
 
-      const saveBotMessageSql = `
+      db.query(historySql, [chatId, CHAT_HISTORY_LIMIT], async (historyErr, historyRows) => {
+        if (historyErr) {
+          return res.status(500).json({
+            message: "Ошибка подготовки контекста чата",
+          });
+        }
+
+        let botReply = "";
+        try {
+          botReply = await generateBotReply({
+            botName: chat.bot_name,
+            botSystemPrompt: chat.bot_system_prompt,
+            personaPrompt: String(persona_prompt || ""),
+            personaName: String(persona_name || ""),
+            history: mapMessagesToOllamaHistory(historyRows),
+          });
+        } catch (modelErr) {
+          return res.status(500).json({
+            message:
+              "Не удалось получить ответ от модели. Проверьте Ollama и выбранную модель.",
+          });
+        }
+
+        const saveBotMessageSql = `
+          INSERT INTO messages
+          (
+            chat_id,
+            sender_type,
+            content,
+            created_at
+          )
+          VALUES (?, 'bot', ?, NOW())
+        `;
+
+        db.query(saveBotMessageSql, [chatId, botReply], (saveBotErr, saveBotResult) => {
+          if (saveBotErr) {
+            return res.status(500).json({
+              message: "Ошибка сохранения ответа бота",
+            });
+          }
+
+          const updateChatSql = `
+            UPDATE chats
+            SET updated_at = NOW()
+            WHERE id = ?
+          `;
+
+          db.query(updateChatSql, [chatId], (updateErr) => {
+            if (updateErr) {
+            }
+
+            res.json({
+              message: "Сообщение отправлено ✅",
+              user_message: {
+                id: saveUserResult.insertId,
+                chat_id: Number(chatId),
+                sender_type: "user",
+                content: normalizedText,
+              },
+              reply: {
+                id: saveBotResult.insertId,
+                chat_id: Number(chatId),
+                sender_type: "bot",
+                content: botReply,
+              },
+            });
+          });
+        });
+      });
+    });
+  });
+});
+
+app.put("/chat/:chatId/message/:messageId", async (req, res) => {
+  const { chatId, messageId } = req.params;
+  const { user_id, text } = req.body;
+  const normalizedText = String(text || "").trim();
+
+  if (!user_id) {
+    return res.status(400).json({ message: "Не указан пользователь" });
+  }
+  if (!normalizedText) {
+    return res.status(400).json({ message: "Пустое сообщение" });
+  }
+  if (normalizedText.length > MAX_USER_MESSAGE_LENGTH) {
+    return res.status(400).json({
+      message: `Сообщение слишком длинное (максимум ${MAX_USER_MESSAGE_LENGTH} символов)`,
+    });
+  }
+
+  try {
+    const ownedChat = await getOwnedChat(chatId, user_id);
+    if (!ownedChat) return res.status(404).json({ message: "Чат не найден" });
+    if (ownedChat === "forbidden") {
+      return res.status(403).json({ message: "Нет доступа к этому чату" });
+    }
+
+    const messageRows = await dbQuery(
+      `
+        SELECT id, chat_id, sender_type
+        FROM messages
+        WHERE id = ? AND chat_id = ?
+        LIMIT 1
+      `,
+      [messageId, chatId],
+    );
+    if (!messageRows.length) {
+      return res.status(404).json({ message: "Сообщение не найдено" });
+    }
+
+    await dbQuery(
+      `
+        UPDATE messages
+        SET content = ?
+        WHERE id = ? AND chat_id = ?
+      `,
+      [normalizedText, messageId, chatId],
+    );
+    await dbQuery("UPDATE chats SET updated_at = NOW() WHERE id = ?", [chatId]);
+
+    return res.json({
+      message: "Сообщение обновлено ✅",
+      updated: {
+        id: Number(messageId),
+        chat_id: Number(chatId),
+        sender_type: messageRows[0].sender_type,
+        content: normalizedText,
+      },
+    });
+  } catch (error) {
+    return res.status(500).json({ message: "Ошибка редактирования сообщения" });
+  }
+});
+
+app.delete("/chat/:chatId/message/:messageId", async (req, res) => {
+  const { chatId, messageId } = req.params;
+  const { user_id } = req.body;
+
+  if (!user_id) {
+    return res.status(400).json({ message: "Не указан пользователь" });
+  }
+
+  try {
+    const ownedChat = await getOwnedChat(chatId, user_id);
+    if (!ownedChat) return res.status(404).json({ message: "Чат не найден" });
+    if (ownedChat === "forbidden") {
+      return res.status(403).json({ message: "Нет доступа к этому чату" });
+    }
+
+    const deleteResult = await dbQuery(
+      "DELETE FROM messages WHERE id = ? AND chat_id = ?",
+      [messageId, chatId],
+    );
+    if (deleteResult.affectedRows === 0) {
+      return res.status(404).json({ message: "Сообщение не найдено" });
+    }
+
+    await dbQuery("UPDATE chats SET updated_at = NOW() WHERE id = ?", [chatId]);
+    return res.json({ message: "Сообщение удалено ✅", deleted_id: Number(messageId) });
+  } catch (error) {
+    return res.status(500).json({ message: "Ошибка удаления сообщения" });
+  }
+});
+
+app.post("/chat/:chatId/message/:messageId/regenerate", async (req, res) => {
+  const { chatId, messageId } = req.params;
+  const { user_id, persona_prompt, persona_name } = req.body;
+
+  if (!user_id) {
+    return res.status(400).json({ message: "Не указан пользователь" });
+  }
+
+  try {
+    const ownedChat = await getOwnedChat(chatId, user_id);
+    if (!ownedChat) return res.status(404).json({ message: "Чат не найден" });
+    if (ownedChat === "forbidden") {
+      return res.status(403).json({ message: "Нет доступа к этому чату" });
+    }
+
+    const targetRows = await dbQuery(
+      `
+        SELECT id, sender_type
+        FROM messages
+        WHERE id = ? AND chat_id = ?
+        LIMIT 1
+      `,
+      [messageId, chatId],
+    );
+    if (!targetRows.length) {
+      return res.status(404).json({ message: "Сообщение не найдено" });
+    }
+    if (targetRows[0].sender_type !== "bot") {
+      return res.status(400).json({ message: "Перегенерация доступна только для ответа бота" });
+    }
+
+    const previousRows = await dbQuery(
+      `
+        SELECT id
+        FROM messages
+        WHERE chat_id = ? AND id < ?
+        ORDER BY id DESC
+        LIMIT 1
+      `,
+      [chatId, messageId],
+    );
+    const upperMessageId = previousRows.length ? Number(previousRows[0].id) : null;
+
+    const regenerated = await buildBotReplyFromHistory(
+      dbQuery,
+      chatId,
+      ownedChat,
+      String(persona_prompt || ""),
+      String(persona_name || ""),
+      upperMessageId,
+    );
+
+    await dbQuery(
+      `
+        UPDATE messages
+        SET content = ?
+        WHERE id = ? AND chat_id = ?
+      `,
+      [regenerated, messageId, chatId],
+    );
+    await dbQuery("UPDATE chats SET updated_at = NOW() WHERE id = ?", [chatId]);
+
+    return res.json({
+      message: "Ответ перегенерирован ✅",
+      reply: {
+        id: Number(messageId),
+        chat_id: Number(chatId),
+        sender_type: "bot",
+        content: regenerated,
+      },
+    });
+  } catch (error) {
+    return res.status(500).json({ message: "Ошибка перегенерации сообщения" });
+  }
+});
+
+app.post("/chat/:chatId/continue", async (req, res) => {
+  const { chatId } = req.params;
+  const { user_id, persona_prompt, persona_name } = req.body;
+
+  if (!user_id) {
+    return res.status(400).json({ message: "Не указан пользователь" });
+  }
+
+  try {
+    const ownedChat = await getOwnedChat(chatId, user_id);
+    if (!ownedChat) return res.status(404).json({ message: "Чат не найден" });
+    if (ownedChat === "forbidden") {
+      return res.status(403).json({ message: "Нет доступа к этому чату" });
+    }
+
+    const continuedReply = await buildBotReplyFromHistory(
+      dbQuery,
+      chatId,
+      ownedChat,
+      String(persona_prompt || ""),
+      String(persona_name || ""),
+      null,
+    );
+    const insertResult = await dbQuery(
+      `
         INSERT INTO messages
         (
           chat_id,
@@ -975,38 +1265,23 @@ app.post("/chat/:chatId/message", (req, res) => {
           created_at
         )
         VALUES (?, 'bot', ?, NOW())
-      `;
+      `,
+      [chatId, continuedReply],
+    );
+    await dbQuery("UPDATE chats SET updated_at = NOW() WHERE id = ?", [chatId]);
 
-      db.query(saveBotMessageSql, [chatId, botReply], (saveBotErr) => {
-        if (saveBotErr) {
-          console.error("SAVE BOT MESSAGE ERROR:", saveBotErr);
-          return res.status(500).json({
-            message: "Ошибка сохранения ответа бота",
-          });
-        }
-
-        const updateChatSql = `
-          UPDATE chats
-          SET updated_at = NOW()
-          WHERE id = ?
-        `;
-
-        db.query(updateChatSql, [chatId], (updateErr) => {
-          if (updateErr) {
-            console.error("UPDATE CHAT TIME ERROR:", updateErr);
-          }
-
-          res.json({
-            message: "Сообщение отправлено ✅",
-            reply: {
-              sender_type: "bot",
-              content: botReply,
-            },
-          });
-        });
-      });
+    return res.json({
+      message: "Продолжение сгенерировано ✅",
+      reply: {
+        id: insertResult.insertId,
+        chat_id: Number(chatId),
+        sender_type: "bot",
+        content: continuedReply,
+      },
     });
-  });
+  } catch (error) {
+    return res.status(500).json({ message: "Ошибка генерации продолжения" });
+  }
 });
 
 /*мои чаты*/
@@ -1033,7 +1308,6 @@ app.get("/my-chats/:userId", (req, res) => {
 
   db.query(sql, [userId], (err, rows) => {
     if (err) {
-      console.error("MY CHATS ERROR:", err);
       return res.status(500).json({
         message: "Ошибка загрузки чатов",
       });
@@ -1059,7 +1333,6 @@ app.get("/admin/users", requireAdmin, (req, res) => {
 
   db.query(sql, (err, rows) => {
     if (err) {
-      console.error("ADMIN USERS ERROR:", err);
       return res.status(500).json({
         message: "Ошибка загрузки пользователей",
       });
@@ -1087,7 +1360,6 @@ app.put("/admin/users/:id", requireAdmin, (req, res) => {
     [username || "", email || "", Number(role_id) || 1, id],
     (err) => {
       if (err) {
-        console.error("ADMIN UPDATE USER ERROR:", err);
         return res.status(500).json({
           message: "Ошибка обновления пользователя",
         });
@@ -1119,7 +1391,6 @@ app.delete("/admin/users/:id", requireAdmin, (req, res) => {
 
   db.query(deleteMessagesSql, [id], (messagesErr) => {
     if (messagesErr) {
-      console.error("ADMIN DELETE USER MESSAGES ERROR:", messagesErr);
       return res.status(500).json({
         message: "Ошибка удаления сообщений пользователя",
       });
@@ -1129,7 +1400,6 @@ app.delete("/admin/users/:id", requireAdmin, (req, res) => {
 
     db.query(deleteChatsSql, [id], (chatsErr) => {
       if (chatsErr) {
-        console.error("ADMIN DELETE USER CHATS ERROR:", chatsErr);
         return res.status(500).json({
           message: "Ошибка удаления чатов пользователя",
         });
@@ -1145,7 +1415,6 @@ app.delete("/admin/users/:id", requireAdmin, (req, res) => {
 
       db.query(deleteBotsMessagesSql, [id], (bmErr) => {
         if (bmErr) {
-          console.error("ADMIN DELETE USER BOTS MESSAGES ERROR:", bmErr);
           return res.status(500).json({
             message: "Ошибка удаления сообщений ботов пользователя",
           });
@@ -1160,7 +1429,6 @@ app.delete("/admin/users/:id", requireAdmin, (req, res) => {
 
         db.query(deleteBotsChatsSql, [id], (bcErr) => {
           if (bcErr) {
-            console.error("ADMIN DELETE USER BOTS CHATS ERROR:", bcErr);
             return res.status(500).json({
               message: "Ошибка удаления чатов ботов пользователя",
             });
@@ -1170,7 +1438,6 @@ app.delete("/admin/users/:id", requireAdmin, (req, res) => {
 
           db.query(deleteBotsSql, [id], (botsErr) => {
             if (botsErr) {
-              console.error("ADMIN DELETE USER BOTS ERROR:", botsErr);
               return res.status(500).json({
                 message: "Ошибка удаления ботов пользователя",
               });
@@ -1180,7 +1447,6 @@ app.delete("/admin/users/:id", requireAdmin, (req, res) => {
 
             db.query(deleteUserSql, [id], (userErr) => {
               if (userErr) {
-                console.error("ADMIN DELETE USER ERROR:", userErr);
                 return res.status(500).json({
                   message: "Ошибка удаления пользователя",
                 });
@@ -1215,7 +1481,6 @@ app.get("/admin/bots", requireAdmin, (req, res) => {
 
   db.query(sql, (err, rows) => {
     if (err) {
-      console.error("ADMIN BOTS ERROR:", err);
       return res.status(500).json({
         message: "Ошибка загрузки ботов",
       });
@@ -1241,7 +1506,6 @@ app.put("/admin/bots/:id", requireAdmin, (req, res) => {
 
   db.query(sql, [name || "", visibility || "public", tags || "", id], (err) => {
     if (err) {
-      console.error("ADMIN UPDATE BOT ERROR:", err);
       return res.status(500).json({
         message: "Ошибка обновления бота",
       });
@@ -1266,7 +1530,6 @@ app.delete("/admin/bots/:id", requireAdmin, (req, res) => {
 
   db.query(deleteMessagesSql, [id], (messagesErr) => {
     if (messagesErr) {
-      console.error("ADMIN DELETE BOT MESSAGES ERROR:", messagesErr);
       return res.status(500).json({
         message: "Ошибка удаления сообщений бота",
       });
@@ -1276,7 +1539,6 @@ app.delete("/admin/bots/:id", requireAdmin, (req, res) => {
 
     db.query(deleteChatsSql, [id], (chatsErr) => {
       if (chatsErr) {
-        console.error("ADMIN DELETE BOT CHATS ERROR:", chatsErr);
         return res.status(500).json({
           message: "Ошибка удаления чатов бота",
         });
@@ -1286,7 +1548,6 @@ app.delete("/admin/bots/:id", requireAdmin, (req, res) => {
 
       db.query(deleteBotSql, [id], (err) => {
         if (err) {
-          console.error("ADMIN DELETE BOT ERROR:", err);
           return res.status(500).json({
             message: "Ошибка удаления бота",
           });
@@ -1322,7 +1583,6 @@ app.get("/admin/chats", requireAdmin, (req, res) => {
 
   db.query(sql, (err, rows) => {
     if (err) {
-      console.error("ADMIN CHATS ERROR:", err);
       return res.status(500).json({
         message: "Ошибка загрузки чатов",
       });
@@ -1338,7 +1598,6 @@ app.delete("/admin/chats/:id", requireAdmin, (req, res) => {
 
   db.query("DELETE FROM messages WHERE chat_id = ?", [id], (msgErr) => {
     if (msgErr) {
-      console.error("ADMIN DELETE CHAT MESSAGES ERROR:", msgErr);
       return res.status(500).json({
         message: "Ошибка удаления сообщений чата",
       });
@@ -1346,7 +1605,6 @@ app.delete("/admin/chats/:id", requireAdmin, (req, res) => {
 
     db.query("DELETE FROM chats WHERE id = ?", [id], (chatErr) => {
       if (chatErr) {
-        console.error("ADMIN DELETE CHAT ERROR:", chatErr);
         return res.status(500).json({
           message: "Ошибка удаления чата",
         });
@@ -1383,7 +1641,6 @@ app.get("/all-bots", (req, res) => {
 
   db.query(sql, (err, rows) => {
     if (err) {
-      console.error("ALL BOTS ERROR:", err);
       return res.status(500).json({
         message: "Ошибка загрузки всех ботов",
       });
@@ -1418,7 +1675,6 @@ app.get("/personas/:userId", (req, res) => {
 
   db.query(sql, [userId], (err, rows) => {
     if (err) {
-      console.error("GET PERSONAS ERROR:", err);
       return res.status(500).json({
         message: "Ошибка загрузки персон",
       });
@@ -1473,7 +1729,6 @@ app.post("/persona", (req, res) => {
       ],
       (err, result) => {
         if (err) {
-          console.error("CREATE PERSONA ERROR:", err);
           return res.status(500).json({
             message: "Ошибка создания персоны",
           });
@@ -1493,7 +1748,6 @@ app.post("/persona", (req, res) => {
       [user_id],
       (err) => {
         if (err) {
-          console.error("RESET DEFAULT PERSONA ERROR:", err);
           return res.status(500).json({
             message: "Ошибка выбора основной персоны",
           });
@@ -1551,7 +1805,6 @@ app.put("/persona/:id", (req, res) => {
       ],
       (err, result) => {
         if (err) {
-          console.error("UPDATE PERSONA ERROR:", err);
           return res.status(500).json({
             message: "Ошибка обновления персоны",
           });
@@ -1576,7 +1829,6 @@ app.put("/persona/:id", (req, res) => {
       [user_id],
       (err) => {
         if (err) {
-          console.error("RESET DEFAULT PERSONA ERROR:", err);
           return res.status(500).json({
             message: "Ошибка выбора основной персоны",
           });
@@ -1606,7 +1858,6 @@ app.put("/persona/:id/default", (req, res) => {
     [user_id],
     (err) => {
       if (err) {
-        console.error("RESET DEFAULT PERSONA ERROR:", err);
         return res.status(500).json({
           message: "Ошибка обновления персон",
         });
@@ -1617,7 +1868,6 @@ app.put("/persona/:id/default", (req, res) => {
         [id, user_id],
         (updateErr, result) => {
           if (updateErr) {
-            console.error("SET DEFAULT PERSONA ERROR:", updateErr);
             return res.status(500).json({
               message: "Ошибка выбора персоны",
             });
@@ -1656,7 +1906,6 @@ app.delete("/persona/:id", (req, res) => {
 
   db.query(sql, [id, user_id], (err, result) => {
     if (err) {
-      console.error("DELETE PERSONA ERROR:", err);
       return res.status(500).json({
         message: "Ошибка удаления персоны",
       });
@@ -1691,7 +1940,6 @@ app.delete("/chat/:chatId/messages", (req, res) => {
 
   db.query(checkSql, [chatId], (err, rows) => {
     if (err) {
-      console.error("CHECK CHAT OWNER ERROR:", err);
       return res.status(500).json({ message: "Ошибка проверки чата" });
     }
 
@@ -1705,7 +1953,6 @@ app.delete("/chat/:chatId/messages", (req, res) => {
 
     db.query("DELETE FROM messages WHERE chat_id = ?", [chatId], (deleteErr) => {
       if (deleteErr) {
-        console.error("DELETE CHAT MESSAGES ERROR:", deleteErr);
         return res.status(500).json({ message: "Ошибка удаления сообщений" });
       }
 
@@ -1738,7 +1985,6 @@ app.delete("/chat/:chatId", (req, res) => {
 
   db.query(checkSql, [chatId], (err, rows) => {
     if (err) {
-      console.error("CHECK CHAT DELETE ERROR:", err);
       return res.status(500).json({ message: "Ошибка проверки чата" });
     }
 
@@ -1752,13 +1998,11 @@ app.delete("/chat/:chatId", (req, res) => {
 
     db.query("DELETE FROM messages WHERE chat_id = ?", [chatId], (msgErr) => {
       if (msgErr) {
-        console.error("DELETE CHAT MSG ERROR:", msgErr);
         return res.status(500).json({ message: "Ошибка удаления сообщений" });
       }
 
       db.query("DELETE FROM chats WHERE id = ?", [chatId], (chatErr) => {
         if (chatErr) {
-          console.error("DELETE CHAT ERROR:", chatErr);
           return res.status(500).json({ message: "Ошибка удаления чата" });
         }
 
@@ -1774,6 +2018,4 @@ app.delete("/chat/:chatId", (req, res) => {
 
 const PORT = process.env.PORT || 3000;
 
-app.listen(PORT, () => {
-  console.log(`Сервер запущен на порту ${PORT}`);
-});
+app.listen(PORT);

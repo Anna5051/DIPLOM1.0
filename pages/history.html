@@ -203,7 +203,7 @@
         chats = Array.isArray(data) ? data : [];
         applyFilters();
       } catch (error) {
-        console.error(error);
+        notifyUser("Не удалось загрузить историю чатов", "error");
         statusBox.textContent = "Не удалось загрузить историю чатов";
       }
     }

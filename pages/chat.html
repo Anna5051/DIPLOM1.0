@@ -100,15 +100,29 @@
       </div>
     </section>
 
-    <form class="chat-input-area" id="chatForm">
-      <textarea
-        id="chatInput"
-        placeholder="Введите сообщение..."
-        rows="3"
-      ></textarea>
-
-      <button type="submit" class="send-btn">➤</button>
-    </form>
+    <div class="chat-input-wrap">
+      <form class="chat-input-area" id="chatForm">
+        <div class="chat-input-row">
+          <textarea
+            id="chatInput"
+            placeholder="Введите сообщение..."
+            rows="3"
+          ></textarea>
+          <button type="submit" class="send-btn" id="sendBtn" aria-label="Отправить">
+            ➤
+          </button>
+          <button
+            type="button"
+            class="ai-stop-btn"
+            id="aiStopBtn"
+            title="Остановить генерацию"
+            aria-label="Остановить генерацию"
+          >
+            <span class="ai-stop-icon" aria-hidden="true"></span>
+          </button>
+        </div>
+      </form>
+    </div>
   </main>
 
   <div id="pageToast" class="page-toast hidden" role="status" aria-live="polite"></div>
@@ -136,7 +150,36 @@
 
     const chatForm = document.getElementById("chatForm");
     const chatInput = document.getElementById("chatInput");
+    const aiStopBtn = document.getElementById("aiStopBtn");
     const messagesBox = document.getElementById("messagesBox");
+
+    let aiAbortController = null;
+
+    function startAiBusy() {
+      if (aiAbortController) {
+        try {
+          aiAbortController.abort();
+        } catch {
+          /* ignore */
+        }
+      }
+      aiAbortController = new AbortController();
+      chatForm.classList.add("chat-input-area--ai-busy");
+      chatInput.disabled = true;
+      return aiAbortController.signal;
+    }
+
+    function stopAiBusy() {
+      chatForm.classList.remove("chat-input-area--ai-busy");
+      chatInput.disabled = false;
+      aiAbortController = null;
+    }
+
+    aiStopBtn.addEventListener("click", () => {
+      if (aiAbortController) {
+        aiAbortController.abort();
+      }
+    });
 
     const chatBotName = document.getElementById("chatBotName");
     const chatBotDesc = document.getElementById("chatBotDesc");
@@ -161,6 +204,8 @@
 
     let currentChatId = null;
     let currentBot = null;
+    let messageRows = [];
+    let editingMessageId = null;
 
     let personas = [];
     let activePersona = null;
@@ -172,18 +217,90 @@
       return div.innerHTML;
     }
 
+    /** Убирает ведущие пробелы/переносы и отступы после \\n — при pre-wrap они давали лишний отступ первой строки. */
+    function normalizeChatMessageText(text) {
+      if (text == null) return "";
+      return String(text)
+        .replace(/^\uFEFF/, "")
+        .replace(/^\s+/, "")
+        .replace(/\r\n/g, "\n")
+        .replace(/\n[\t \u00a0\u2000-\u200b\ufeff]+/g, "\n");
+    }
+
+    function toPlainText(value) {
+      const div = document.createElement("div");
+      div.innerHTML = String(value || "");
+      return (div.textContent || div.innerText || "")
+        .replace(/\u00a0/g, " ")
+        .replace(/\s+/g, " ")
+        .trim();
+    }
+
+    function extractPromptMetadata(systemPrompt) {
+      const prompt = String(systemPrompt || "");
+      const match = prompt.match(
+        /^\[CHARITOR_PROMPT_V1\]\n([\s\S]*?)\n\[\/CHARITOR_PROMPT_V1\]\n\n/,
+      );
+      if (!match) return null;
+
+      try {
+        return JSON.parse(match[1]);
+      } catch {
+        return null;
+      }
+    }
+
+    function extractScenarioByMarker(prompt, marker) {
+      const start = prompt.indexOf(marker);
+      if (start === -1) return "";
+
+      const afterMarker = prompt.slice(start + marker.length);
+      const nextMarkerIndex = afterMarker.indexOf("###");
+      const scenarioBlock =
+        nextMarkerIndex === -1
+          ? afterMarker
+          : afterMarker.slice(0, nextMarkerIndex);
+
+      return toPlainText(scenarioBlock);
+    }
+
+    function extractScenarioFromPrompt(systemPrompt) {
+      const prompt = String(systemPrompt || "");
+      if (!prompt) return "";
+
+      // Primary source in this project: JSON block in [CHARITOR_PROMPT_V1].
+      const promptMetadata = extractPromptMetadata(prompt);
+      if (promptMetadata?.scenario) {
+        return toPlainText(promptMetadata.scenario);
+      }
+
+      // Fallbacks for manually written prompts.
+      const scenarioByEnMarker = extractScenarioByMarker(prompt, "### SCENARIO:");
+      if (scenarioByEnMarker) return scenarioByEnMarker;
+
+      const scenarioByRuMarker = extractScenarioByMarker(prompt, "### СЮЖЕТ:");
+      if (scenarioByRuMarker) return scenarioByRuMarker;
+
+      const simpleRuMatch = prompt.match(/(?:^|\n)Сюжет\s*:\s*([\s\S]*?)(?:\n[A-ZА-ЯЁ][^:\n]{1,40}:|\n###|$)/i);
+      if (simpleRuMatch?.[1]) {
+        return toPlainText(simpleRuMatch[1]);
+      }
+
+      return "";
+    }
+
     async function safeReadJson(response) {
       const raw = await response.text();
 
       try {
         return JSON.parse(raw);
       } catch {
-        console.error("Сервер вернул не JSON:", raw);
-        throw new Error("Сервер вернул не JSON. Проверь server.js.");
+        throw new Error("Ошибка ответа сервера. Попробуйте снова.");
       }
     }
 
     function clearMessages() {
+      editingMessageId = null;
       messagesBox.innerHTML = "";
     }
 
@@ -251,8 +368,7 @@
         });
 
         setActivePersona(foundPersona || null);
-      } catch (error) {
-        console.error(error);
+      } catch {
         personas = [];
         setActivePersona(null);
       }
@@ -347,13 +463,302 @@
       personaModal.classList.add("hidden");
     }
 
-    function renderMessage(senderType, text, options = {}) {
-      const type = senderType === "user" ? "user" : "bot";
+    function buildTypingDotsHtml() {
+      return `<span class="typing-dots" role="status" aria-live="polite" aria-label="Генерация ответа"><span class="typing-dot" aria-hidden="true"></span><span class="typing-dot" aria-hidden="true"></span><span class="typing-dot" aria-hidden="true"></span></span>`;
+    }
+
+    function findMessageRow(messageId) {
+      return messagesBox.querySelector(`.message[data-message-id="${messageId}"]`);
+    }
+
+    /** Смена текста в том же пузырьке: уходит влево, новый текст заезжает справа (не новое сообщение в треде). */
+    async function animateBubbleSwipeReplace(bubble, newText) {
+      bubble.classList.remove("loading");
+      bubble.style.willChange = "transform, opacity";
+      bubble.style.transition = "transform 0.2s ease, opacity 0.2s ease";
+      bubble.style.transform = "translateX(-12%)";
+      bubble.style.opacity = "0";
+      await new Promise((resolve) => setTimeout(resolve, 220));
+      bubble.textContent = normalizeChatMessageText(newText);
+      bubble.style.transition = "none";
+      bubble.style.transform = "translateX(14%)";
+      bubble.style.opacity = "0";
+      void bubble.offsetHeight;
+      bubble.style.transition = "transform 0.28s cubic-bezier(0.22, 1, 0.36, 1), opacity 0.28s ease";
+      bubble.style.transform = "translateX(0)";
+      bubble.style.opacity = "1";
+      await new Promise((resolve) => setTimeout(resolve, 300));
+      bubble.style.transition = "";
+      bubble.style.transform = "";
+      bubble.style.opacity = "";
+      bubble.style.willChange = "";
+    }
+
+    async function runBotMessageRegenerate(messageId, { swipe } = { swipe: false }) {
+      const idx = messageRows.findIndex((item) => Number(item.id) === messageId);
+      if (idx === -1) return;
+
+      messageRows[idx] = {
+        ...messageRows[idx],
+        _loading: true,
+      };
+      rerenderMessages();
+
+      const signal = startAiBusy();
+
+      try {
+        const data = await regenerateMessageOnServer(messageId, signal);
+        messageRows[idx] = data.reply;
+
+        if (swipe) {
+          const row = findMessageRow(messageId);
+          const bubble = row?.querySelector(".message-bubble");
+          const stack = row?.querySelector(".message-stack");
+          if (bubble && stack) {
+            await animateBubbleSwipeReplace(bubble, data.reply.content);
+            const hdr = row.querySelector(".message-card-header-actions");
+            if (hdr) hdr.innerHTML = buildMessageHeaderActions(data.reply);
+            stack.querySelector(".message-actions--footer")?.remove();
+            bubble.insertAdjacentHTML("afterend", buildMessageFooterActions(data.reply));
+          } else {
+            rerenderMessages();
+          }
+        } else {
+          rerenderMessages();
+        }
+
+        showToast(swipe ? "Новый вариант ответа" : "Новый ответ готов");
+      } catch (error) {
+        if (error.name === "AbortError") {
+          delete messageRows[idx]._loading;
+          rerenderMessages();
+          showToast("Перегенерация остановлена");
+          return;
+        }
+        delete messageRows[idx]._loading;
+        rerenderMessages();
+        throw error;
+      } finally {
+        stopAiBusy();
+      }
+    }
+
+    function setJanitorEditIconButton(button, kind) {
+      const ns = "http://www.w3.org/2000/svg";
+      const svg = document.createElementNS(ns, "svg");
+      svg.setAttribute("width", "15");
+      svg.setAttribute("height", "15");
+      svg.setAttribute("viewBox", "0 0 24 24");
+      svg.setAttribute("fill", "none");
+      svg.setAttribute("aria-hidden", "true");
+      svg.style.display = "block";
+
+      if (kind === "check") {
+        const p = document.createElementNS(ns, "path");
+        p.setAttribute("d", "M20 6L9 17l-5-5");
+        p.setAttribute("stroke", "currentColor");
+        p.setAttribute("stroke-width", "2.25");
+        p.setAttribute("stroke-linecap", "round");
+        p.setAttribute("stroke-linejoin", "round");
+        svg.appendChild(p);
+      } else {
+        const p = document.createElementNS(ns, "path");
+        p.setAttribute("d", "M18 6L6 18M6 6l12 12");
+        p.setAttribute("stroke", "currentColor");
+        p.setAttribute("stroke-width", "2.25");
+        p.setAttribute("stroke-linecap", "round");
+        svg.appendChild(p);
+      }
+      button.replaceChildren(svg);
+    }
+
+    function cancelMessageEdit(messageId) {
+      if (editingMessageId !== messageId) return;
+      editingMessageId = null;
+      const target = messageRows.find((item) => Number(item.id) === messageId);
+      const row = findMessageRow(messageId);
+      if (!row || !target) return;
+      const stack = row.querySelector(".message-stack");
+      if (stack) stack.classList.remove("message-stack--editing");
+      const headerActions = row.querySelector(".message-card-header-actions");
+      if (headerActions) {
+        headerActions.innerHTML = buildMessageHeaderActions(target);
+      }
+      const bubble = row.querySelector(".message-bubble");
+      if (!bubble) return;
+      bubble.classList.remove("message-bubble--editing");
+      bubble.textContent = normalizeChatMessageText(target.content || "");
+    }
+
+    function beginMessageEdit(messageId) {
+      const target = messageRows.find((item) => Number(item.id) === messageId);
+      if (!target) return;
+      if (editingMessageId === messageId) return;
+
+      if (editingMessageId !== null && editingMessageId !== messageId) {
+        cancelMessageEdit(editingMessageId);
+      }
+
+      const row = findMessageRow(messageId);
+      if (!row) return;
+
+      const bubble = row.querySelector(".message-bubble");
+      if (!bubble || bubble.classList.contains("loading")) return;
+
+      const stack = row.querySelector(".message-stack");
+      if (stack) stack.classList.add("message-stack--editing");
+
+      const headerActions = row.querySelector(".message-card-header-actions");
+      if (headerActions) {
+        headerActions.replaceChildren();
+        const saveBtn = document.createElement("button");
+        saveBtn.type = "button";
+        saveBtn.className = "message-edit-check";
+        saveBtn.title = "Сохранить";
+        saveBtn.setAttribute("aria-label", "Сохранить");
+        setJanitorEditIconButton(saveBtn, "check");
+
+        const cancelBtn = document.createElement("button");
+        cancelBtn.type = "button";
+        cancelBtn.className = "message-edit-abort";
+        cancelBtn.title = "Отмена";
+        cancelBtn.setAttribute("aria-label", "Отмена");
+        setJanitorEditIconButton(cancelBtn, "close");
+
+        headerActions.append(saveBtn, cancelBtn);
+
+        saveBtn.addEventListener("click", () => commitMessageEdit(messageId));
+        cancelBtn.addEventListener("click", () => cancelMessageEdit(messageId));
+      }
+
+      editingMessageId = messageId;
+      const text = normalizeChatMessageText(target.content || "");
+
+      bubble.classList.add("message-bubble--editing");
+      bubble.replaceChildren();
+
+      const ta = document.createElement("textarea");
+      ta.className = "message-edit-field";
+      const lines = text.split("\n").length;
+      ta.rows = Math.min(14, Math.max(4, lines + 1));
+      ta.value = text;
+
+      bubble.appendChild(ta);
+
+      ta.title = "Ctrl+Enter — сохранить, Esc — отмена";
+
+      ta.focus();
+      ta.setSelectionRange(ta.value.length, ta.value.length);
+
+      ta.addEventListener("keydown", (e) => {
+        if (e.key === "Escape") {
+          e.preventDefault();
+          cancelMessageEdit(messageId);
+        }
+        if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) {
+          e.preventDefault();
+          commitMessageEdit(messageId);
+        }
+      });
+    }
+
+    async function commitMessageEdit(messageId) {
+      const row = findMessageRow(messageId);
+      if (!row) return;
+      const ta = row.querySelector(".message-edit-field");
+      if (!ta) return;
+
+      const trimmed = ta.value.trim();
+      if (!trimmed) {
+        showToast("Текст не может быть пустым");
+        return;
+      }
+
+      try {
+        const data = await updateMessageOnServer(messageId, trimmed);
+        const idx = messageRows.findIndex((item) => Number(item.id) === messageId);
+        if (idx !== -1) {
+          messageRows[idx] = data.updated;
+        }
+        editingMessageId = null;
+        const stack = row.querySelector(".message-stack");
+        if (stack) stack.classList.remove("message-stack--editing");
+        const headerActions = row.querySelector(".message-card-header-actions");
+        if (headerActions) {
+          headerActions.innerHTML = buildMessageHeaderActions(data.updated);
+        }
+        const bubble = row.querySelector(".message-bubble");
+        if (bubble) {
+          bubble.classList.remove("message-bubble--editing");
+          bubble.textContent = trimmed;
+        }
+        showToast("Сообщение обновлено");
+      } catch (error) {
+        showToast(error.message || "Ошибка редактирования");
+      }
+    }
+
+    function buildMessageHeaderActions(message) {
+      if (!message?.id) return "";
+      return `
+        <button
+          type="button"
+          class="message-action-btn icon message-action-header"
+          data-action="edit"
+          data-message-id="${message.id}"
+          title="Редактировать"
+          aria-label="Редактировать"
+        >✎</button>
+      `;
+    }
+
+    function buildMessageFooterActions(message) {
+      if (!message?.id) return "";
+      const canRegenerate = message.sender_type === "bot";
+
+      return `
+        <div class="message-actions message-actions--footer">
+          <button
+            type="button"
+            class="message-action-btn icon danger"
+            data-action="delete"
+            data-message-id="${message.id}"
+            title="Удалить"
+            aria-label="Удалить"
+          >🗑</button>
+          ${canRegenerate ? `
+            <button
+              type="button"
+              class="message-action-btn icon"
+              data-action="regenerate"
+              data-message-id="${message.id}"
+              title="Перегенерировать"
+              aria-label="Перегенерировать"
+            >↻</button>
+            <button
+              type="button"
+              class="message-action-btn icon message-action-swipe"
+              data-action="swipe-regenerate"
+              data-message-id="${message.id}"
+              title="Другой вариант ответа"
+              aria-label="Другой вариант ответа"
+            >›</button>
+          ` : ""}
+        </div>
+      `;
+    }
+
+    function renderMessage(message, options = {}) {
+      const type = message.sender_type === "user" ? "user" : "bot";
+      const isLoadingUi = Boolean(options.loading || message._loading);
 
       const row = document.createElement("div");
       row.className = type === "user"
         ? "message message-user"
         : "message message-bot";
+      if (message.id) {
+        row.dataset.messageId = String(message.id);
+      }
 
       const avatar =
         type === "user"
@@ -366,13 +771,18 @@
           : currentBot?.name || "Бот";
 
       row.innerHTML = `
-        <img class="message-avatar" src="${escapeHtml(avatar)}" alt="avatar" />
-
-        <div class="message-content">
-          <div class="message-author">${escapeHtml(name)}</div>
-          <div class="message-bubble ${options.loading ? "loading" : ""}">
-            ${escapeHtml(text)}
+        <img class="message-avatar" src="${escapeHtml(avatar)}" alt="" />
+        <div class="message-stack ${type === "user" ? "message-stack--user" : ""}">
+          <div class="message-top-row">
+            <span class="message-author">${escapeHtml(name)}</span>
+            <div class="message-card-header-actions">
+              ${!isLoadingUi ? buildMessageHeaderActions(message) : ""}
+            </div>
           </div>
+          <div class="message-bubble ${isLoadingUi ? "loading" : ""}">
+            ${isLoadingUi ? buildTypingDotsHtml() : escapeHtml(normalizeChatMessageText(message.content))}
+          </div>
+          ${!isLoadingUi ? buildMessageFooterActions(message) : ""}
         </div>
       `;
 
@@ -405,7 +815,9 @@
         chatBotName.textContent = data.bot?.name || "Без имени";
         chatTopTitle.textContent = data.bot?.name || "Чат";
 
+        const scenarioText = extractScenarioFromPrompt(data.bot?.system_prompt);
         chatBotDesc.textContent =
+          scenarioText ||
           data.bot?.short_description ||
           data.bot?.full_description ||
           "Персонаж готов к диалогу.";
@@ -414,24 +826,26 @@
         chatInput.placeholder = `Сообщение для ${data.bot?.name || "персонажа"}...`;
 
         clearMessages();
+        messageRows = Array.isArray(data.messages) ? [...data.messages] : [];
 
-        if (Array.isArray(data.messages) && data.messages.length > 0) {
-          data.messages.forEach((message) => {
-            renderMessage(message.sender_type, message.content);
+        if (messageRows.length > 0) {
+          messageRows.forEach((message) => {
+            renderMessage(message);
           });
         } else {
           renderEmpty("Начните диалог первым сообщением");
         }
       } catch (error) {
-        console.error(error);
-        renderEmpty(error.message);
+        renderEmpty(error.message || "Ошибка загрузки чата");
+        showToast(error.message || "Ошибка загрузки чата");
       }
     }
 
-    async function sendMessageToServer(text) {
+    async function sendMessageToServer(text, signal) {
       const payload = {
         text,
         persona_id: activePersona?.id || null,
+        persona_name: activePersona?.name || "",
         persona_prompt:
           activePersona?.persona_prompt ||
           activePersona?.description ||
@@ -444,6 +858,7 @@
           "Content-Type": "application/json",
         },
         body: JSON.stringify(payload),
+        signal,
       });
 
       const data = await safeReadJson(response);
@@ -455,6 +870,64 @@
       return data;
     }
 
+    async function updateMessageOnServer(messageId, text) {
+      const response = await fetch(`${API_BASE}/chat/${currentChatId}/message/${messageId}`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          user_id: userId,
+          text,
+        }),
+      });
+      const data = await safeReadJson(response);
+      if (!response.ok) throw new Error(data.message || "Ошибка редактирования");
+      return data;
+    }
+
+    async function deleteMessageOnServer(messageId) {
+      const response = await fetch(`${API_BASE}/chat/${currentChatId}/message/${messageId}`, {
+        method: "DELETE",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          user_id: userId,
+        }),
+      });
+      const data = await safeReadJson(response);
+      if (!response.ok) throw new Error(data.message || "Ошибка удаления");
+      return data;
+    }
+
+    async function regenerateMessageOnServer(messageId, signal) {
+      const response = await fetch(`${API_BASE}/chat/${currentChatId}/message/${messageId}/regenerate`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          user_id: userId,
+          persona_prompt: activePersona?.persona_prompt || activePersona?.description || "",
+          persona_name: activePersona?.name || "",
+        }),
+        signal,
+      });
+      const data = await safeReadJson(response);
+      if (!response.ok) throw new Error(data.message || "Ошибка перегенерации");
+      return data;
+    }
+
+    function rerenderMessages() {
+      clearMessages();
+      if (!messageRows.length) {
+        renderEmpty("Сообщений пока нет");
+        return;
+      }
+      messageRows.forEach((message) => renderMessage(message));
+    }
+
     chatForm.addEventListener("submit", async (event) => {
       event.preventDefault();
 
@@ -463,7 +936,7 @@
       if (!text) return;
 
       if (!currentChatId) {
-        alert("Чат ещё не загружен");
+        showToast("Чат ещё не загружен");
         return;
       }
 
@@ -471,22 +944,92 @@
         clearMessages();
       }
 
-      renderMessage("user", text);
+      const optimisticUser = {
+        sender_type: "user",
+        content: text,
+      };
+      renderMessage(optimisticUser);
       chatInput.value = "";
 
-      const loadingMessage = renderMessage("bot", "Печатает...", {
-        loading: true,
-      });
+      const loadingMessage = renderMessage(
+        {
+          sender_type: "bot",
+          content: "",
+        },
+        {
+          loading: true,
+        },
+      );
+
+      const signal = startAiBusy();
 
       try {
-        const data = await sendMessageToServer(text);
+        const data = await sendMessageToServer(text, signal);
 
         loadingMessage.remove();
-        renderMessage(data.reply.sender_type, data.reply.content);
+        const optimisticUserRow = messagesBox.lastElementChild;
+        if (optimisticUserRow) optimisticUserRow.remove();
+
+        if (data.user_message?.id) {
+          messageRows.push(data.user_message);
+        }
+        if (data.reply?.id) {
+          messageRows.push(data.reply);
+        }
+        rerenderMessages();
       } catch (error) {
-        console.error(error);
         loadingMessage.remove();
-        alert(error.message);
+        const optimisticUserRow = messagesBox.lastElementChild;
+        if (optimisticUserRow) optimisticUserRow.remove();
+        if (error.name === "AbortError") {
+          showToast("Генерация остановлена");
+        } else {
+          showToast(error.message || "Ошибка отправки сообщения");
+        }
+      } finally {
+        stopAiBusy();
+      }
+    });
+
+    messagesBox.addEventListener("click", async (event) => {
+      const button = event.target.closest(".message-action-btn");
+      if (!button) return;
+
+      const action = button.dataset.action;
+      const messageId = Number(button.dataset.messageId);
+      if (!action || !messageId) return;
+
+      const target = messageRows.find((item) => Number(item.id) === messageId);
+      if (!target) return;
+
+      try {
+        if (action === "edit") {
+          beginMessageEdit(messageId);
+          return;
+        }
+
+        if (action === "delete") {
+          const ok = confirm("Удалить это сообщение?");
+          if (!ok) return;
+
+          await deleteMessageOnServer(messageId);
+          messageRows = messageRows.filter((item) => Number(item.id) !== messageId);
+          rerenderMessages();
+          showToast("Сообщение удалено");
+          return;
+        }
+
+        if (action === "regenerate") {
+          await runBotMessageRegenerate(messageId, { swipe: false });
+          return;
+        }
+
+        if (action === "swipe-regenerate") {
+          await runBotMessageRegenerate(messageId, { swipe: true });
+          return;
+        }
+      } catch (error) {
+        showToast(error.message || "Ошибка действия с сообщением");
       }
     });
 
@@ -513,7 +1056,7 @@
 
     clearChatBtn.addEventListener("click", async () => {
       if (!currentChatId) {
-        alert("Чат ещё не загружен");
+        showToast("Чат ещё не загружен");
         return;
       }
 
@@ -538,17 +1081,17 @@
         }
 
         renderEmpty("Сообщений пока нет");
+        messageRows = [];
         showToast("Сообщения удалены");
         dropdownMenu.classList.remove("open");
       } catch (error) {
-        console.error(error);
-        alert(error.message);
+        showToast(error.message || "Ошибка очистки чата");
       }
     });
 
     newChatBtn.addEventListener("click", () => {
       if (!botId) {
-        alert("Не найден id персонажа");
+        showToast("Не найден id персонажа");
         return;
       }
 

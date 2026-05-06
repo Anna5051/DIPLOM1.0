@@ -497,7 +497,7 @@
         allBots = Array.isArray(data) ? data : [];
         applyFilters();
       } catch (error) {
-        console.error(error);
+        notifyUser("Не удалось загрузить персонажей с сервера", "error");
 
         allBots = [
           {

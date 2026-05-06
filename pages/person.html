@@ -277,7 +277,7 @@
         personas = await response.json();
         renderPersonas();
       } catch (error) {
-        console.error(error);
+        notifyUser("Ошибка загрузки персон", "error");
         personas = [];
         renderPersonas();
       }
@@ -289,7 +289,7 @@
       const description = personaDescription.value.trim();
 
       if (!name || !description) {
-        alert("Заполните имя и описание персоны");
+        notifyUser("Заполните имя и описание персоны", "warning");
         return;
       }
 
@@ -322,15 +322,14 @@
         const data = await response.json();
 
         if (!response.ok) {
-          alert(data.message || "Ошибка сохранения");
+          notifyUser(data.message || "Ошибка сохранения", "error");
           return;
         }
 
         closeModal();
         await loadPersonas();
       } catch (error) {
-        console.error(error);
-        alert("Ошибка соединения с сервером");
+        notifyUser("Ошибка соединения с сервером", "error");
       }
     }
 
@@ -348,15 +347,14 @@
         const data = await response.json();
 
         if (!response.ok) {
-          alert(data.message || "Ошибка удаления");
+          notifyUser(data.message || "Ошибка удаления", "error");
           return;
         }
 
         closeModal();
         await loadPersonas();
       } catch (error) {
-        console.error(error);
-        alert("Ошибка удаления");
+        notifyUser("Ошибка удаления", "error");
       }
     }
 

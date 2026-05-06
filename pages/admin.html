@@ -100,7 +100,7 @@
       }
 
       if (Number(savedUser.role_id) !== 2) {
-        alert("Доступ только для администратора");
+        notifyUser("Доступ только для администратора", "error");
         window.location.href = "/pages/main.html";
       }
 
@@ -220,11 +220,10 @@
                 );
 
                 const data = await res.json();
-                alert(data.message || "Готово");
+                notifyUser(data.message || "Готово", res.ok ? "success" : "error");
                 if (res.ok) loadUsers();
               } catch (error) {
-                console.error("SAVE USER ERROR:", error);
-                alert("Ошибка сохранения пользователя");
+                notifyUser("Ошибка сохранения пользователя", "error");
               }
             });
 
@@ -243,11 +242,10 @@
                 );
 
                 const data = await res.json();
-                alert(data.message || "Готово");
+                notifyUser(data.message || "Готово", res.ok ? "success" : "error");
                 if (res.ok) loadUsers();
               } catch (error) {
-                console.error("DELETE USER ERROR:", error);
-                alert("Ошибка удаления пользователя");
+                notifyUser("Ошибка удаления пользователя", "error");
               }
             });
 
@@ -343,11 +341,10 @@
                 );
 
                 const data = await res.json();
-                alert(data.message || "Готово");
+                notifyUser(data.message || "Готово", res.ok ? "success" : "error");
                 if (res.ok) loadBots();
               } catch (error) {
-                console.error("SAVE BOT ERROR:", error);
-                alert("Ошибка сохранения бота");
+                notifyUser("Ошибка сохранения бота", "error");
               }
             });
 
@@ -366,11 +363,10 @@
                 );
 
                 const data = await res.json();
-                alert(data.message || "Готово");
+                notifyUser(data.message || "Готово", res.ok ? "success" : "error");
                 if (res.ok) loadBots();
               } catch (error) {
-                console.error("DELETE BOT ERROR:", error);
-                alert("Ошибка удаления бота");
+                notifyUser("Ошибка удаления бота", "error");
               }
             });
 
@@ -447,11 +443,10 @@
                 );
 
                 const data = await res.json();
-                alert(data.message || "Готово");
+                notifyUser(data.message || "Готово", res.ok ? "success" : "error");
                 if (res.ok) loadChats();
               } catch (error) {
-                console.error("DELETE CHAT ERROR:", error);
-                alert("Ошибка удаления чата");
+                notifyUser("Ошибка удаления чата", "error");
               }
             });
 
@@ -512,7 +507,7 @@
           allUsers = Array.isArray(data) ? data : [];
           applyFilters();
         } catch (error) {
-          console.error("LOAD USERS ERROR:", error);
+          notifyUser("Ошибка загрузки пользователей", "error");
           usersEmpty.style.display = "block";
           usersEmpty.textContent = "Ошибка загрузки пользователей";
         }
@@ -528,7 +523,7 @@
           allBots = Array.isArray(data) ? data : [];
           applyFilters();
         } catch (error) {
-          console.error("LOAD BOTS ERROR:", error);
+          notifyUser("Ошибка загрузки ботов", "error");
           botsEmpty.style.display = "block";
           botsEmpty.textContent = "Ошибка загрузки ботов";
         }
@@ -544,7 +539,7 @@
           allChats = Array.isArray(data) ? data : [];
           applyFilters();
         } catch (error) {
-          console.error("LOAD CHATS ERROR:", error);
+          notifyUser("Ошибка загрузки чатов", "error");
           chatsEmpty.style.display = "block";
           chatsEmpty.textContent = "Ошибка загрузки чатов";
         }

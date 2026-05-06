@@ -137,7 +137,9 @@
                   id="characterSearch"
                   placeholder="Поиск персонажей..."
                 />
-                <button type="button">⌕</button>
+                <button type="button" id="characterSearchBtn" aria-label="Поиск">
+                  ⌕
+                </button>
               </div>
               <select id="sortCharacters" class="sidebar-select">
                 <option value="latest">Latest</option>
@@ -151,9 +153,13 @@
 
         <aside class="profile-sidebar">
           <div class="sidebar-menu">
-            <a href="#" class="sidebar-btn">Понравившиеся</a>
-            <a href="#" class="sidebar-btn">Персоны</a>
-            <a href="#" class="sidebar-btn active">Персонажи</a>
+            <a href="/pages/main.html?tab=favorites" class="sidebar-btn"
+              >Понравившиеся</a
+            >
+            <a href="/pages/person.html" class="sidebar-btn">Персоны</a>
+            <a href="/pages/profile.html" class="sidebar-btn active"
+              >Персонажи</a
+            >
             <a href="/pages/create.html" class="sidebar-btn"
               >Создать персонажа</a
             >
@@ -223,6 +229,7 @@
       const createdBotsList = document.getElementById("createdBotsList");
       const createdBotsEmpty = document.getElementById("createdBotsEmpty");
       const createdBotsCount = document.getElementById("createdBotsCount");
+      const characterSearchBtn = document.getElementById("characterSearchBtn");
 
       if (searchBtn && searchInput) {
         searchBtn.addEventListener("click", () => {
@@ -390,9 +397,9 @@
           try {
             localStorage.setItem(avatarStorageKey, result);
           } catch (storageError) {
-            console.error("AVATAR SAVE ERROR:", storageError);
-            alert(
+            notifyUser(
               "Картинка слишком большая для сохранения в браузере. Она применена только временно.",
+              "warning",
             );
           }
 
@@ -410,7 +417,6 @@
 
             if (!response.ok) {
               const text = await response.text();
-              console.error("AVATAR UPDATE RAW RESPONSE:", text);
               throw new Error(`HTTP ${response.status}`);
             }
 
@@ -419,12 +425,10 @@
             savedUser.avatar_url = updatedAvatar;
             localStorage.setItem("user", JSON.stringify(savedUser));
           } catch (saveError) {
-            console.error("AVATAR DB SAVE ERROR:", saveError);
-            alert("Не удалось сохранить фото в базе данных");
+            notifyUser("Не удалось сохранить фото в базе данных", "error");
           }
         } catch (error) {
-          console.error("IMAGE COMPRESS ERROR:", error);
-          alert("Ошибка обработки изображения");
+          notifyUser("Ошибка обработки изображения", "error");
         }
       });
 
@@ -500,7 +504,7 @@
         localStorage.setItem(bioStorageKey, html);
         profilePreview.innerHTML = html || "Описание пока не заполнено";
 
-        alert("Профиль сохранён ✅");
+        notifyUser("Профиль сохранён", "success");
       });
 
       cancelProfileBtn.addEventListener("click", () => {
@@ -509,6 +513,8 @@
           localStorage.getItem(bioStorageKey) || "Hi, I'm Hanna.";
         profileEditor.innerHTML = currentHtml;
         profilePreview.innerHTML = currentHtml || "Описание пока не заполнено";
+        profileEditorPanel.classList.add("hidden");
+        toggleEditBtn.textContent = "Редактировать профиль";
       });
 
       followAuthorBtn.addEventListener("click", () => {
@@ -598,6 +604,13 @@
       characterSearch.addEventListener("input", updateCharacters);
       sortCharacters.addEventListener("change", updateCharacters);
 
+      if (characterSearchBtn && characterSearch) {
+        characterSearchBtn.addEventListener("click", () => {
+          characterSearch.focus();
+          updateCharacters();
+        });
+      }
+
       async function loadProfileData() {
         applyProfileBaseData(savedUser);
 
@@ -629,7 +642,6 @@
 
           if (!response.ok) {
             const text = await response.text();
-            console.error("RAW RESPONSE:", text);
             throw new Error(`HTTP ${response.status}`);
           }
 
@@ -676,7 +688,7 @@
           updateFollowersCount(viewedProfile);
           updateFollowButton(viewedProfile);
         } catch (error) {
-          console.error("Ошибка загрузки данных профиля:", error);
+          notifyUser("Ошибка загрузки данных профиля", "error");
           viewedProfile = {
             id: externalAuthorId || null,
             username: externalUsername || "unknown",
@@ -702,7 +714,6 @@
 
           if (!response.ok) {
             const text = await response.text();
-            console.error("RAW RESPONSE:", text);
             throw new Error(`HTTP ${response.status}`);
           }
 
@@ -729,7 +740,7 @@
           characters = list;
           updateCharacters();
         } catch (error) {
-          console.error("Ошибка загрузки персонажей:", error);
+          notifyUser("Ошибка загрузки персонажей", "error");
           createdBotsEmpty.style.display = "block";
           createdBotsEmpty.textContent = "Ошибка загрузки персонажей";
         }

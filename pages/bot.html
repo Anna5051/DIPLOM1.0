@@ -111,16 +111,16 @@
       </section>
 
       <section class="full-history-section">
-        <h2>Полная история персонажа</h2>
+        <h2>Определение персонажа</h2>
 
         <div class="accordion">
           <details class="accordion-item">
-            <summary>Сюжет</summary>
+            <summary>Сценарий и токены</summary>
             <div class="accordion-content" id="accordionPlot">Нет данных</div>
           </details>
 
           <details class="accordion-item">
-            <summary>Биография</summary>
+            <summary>Личность и теги</summary>
             <div class="accordion-content" id="accordionPersonality">
               Нет данных
             </div>
@@ -222,6 +222,7 @@
       let personas = [];
       let activePersona = null;
       let selectedPersonaInModal = null;
+
 
       const savedTopAvatar =
         localStorage.getItem(`profileAvatar_${savedUser?.id}`) ||
@@ -468,7 +469,6 @@
 
           if (!response.ok) {
             const text = await response.text();
-            console.error("RAW RESPONSE:", text);
             throw new Error(`HTTP ${response.status}`);
           }
 
@@ -492,7 +492,9 @@ accordionPlot.innerHTML = escapeHtml(
   normalizeStoryText(scenarioText || "Сюжет не указан"),
 ).replace(/\n/g, "<br>");
 accordionPersonality.innerHTML = escapeHtml(
-  normalizeStoryText(bot.full_description || "Биография не указана"),
+  normalizeStoryText(
+    `${bot.full_description || "Биография не указана"}\n\nТеги: ${bot.tags || "нет"}`
+  ),
 ).replace(/\n/g, "<br>");
 accordionGreeting.innerHTML =
   bot.greeting_message || "Начальное сообщение не указано";
@@ -501,7 +503,7 @@ accordionSystemPrompt.innerHTML =
 
           showOwnerButtons(bot);
         } catch (error) {
-          console.error("Ошибка загрузки бота:", error);
+          notifyUser("Ошибка загрузки бота", "error");
           botName.textContent = "Ошибка загрузки";
           botAuthor.textContent = "---";
           botShortDescription.textContent =
@@ -514,7 +516,7 @@ accordionSystemPrompt.innerHTML =
 
       startChatBtn.addEventListener("click", () => {
         if (!botId) {
-          alert("ID бота не найден");
+          notifyUser("ID бота не найден", "error");
           return;
         }
         openChatPersonaModal();
@@ -553,6 +555,7 @@ accordionSystemPrompt.innerHTML =
         closeChatPersonaModal();
         goToChatWithPersona(selectedPersonaInModal || activePersona || null);
       });
+
 
       chatPersonaModal.addEventListener("click", (event) => {
         if (event.target === chatPersonaModal) {

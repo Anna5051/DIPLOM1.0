@@ -10,11 +10,8 @@ const db = mysql.createConnection({
 
 db.connect((err) => {
   if (err) {
-    console.error("Ошибка подключения к базе данных ❌:", err);
-    return;
+    process.exit(1);
   }
-
-  console.log("Подключено к MySQL успешно ✅");
 });
 
 module.exports = db;

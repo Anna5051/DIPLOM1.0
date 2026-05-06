@@ -29,17 +29,17 @@
       <div class="create-layout">
         <section class="create-main">
           <div class="page-head">
-            <h1 class="page-title">Создание персонажа</h1>
+            <h1 class="page-title">Создать персонажа</h1>
             <p class="page-subtitle">
-              Настрой внешний вид, описание, характер и стартовое сообщение
-              персонажа.
+              Заполните карточку персонажа: базовая информация, сценарий,
+              личность, начальное сообщение и правила генерации.
             </p>
           </div>
 
           <form id="createCharacterForm" class="create-form">
             <section class="form-section">
               <div class="section-title-row">
-                <h2>Основное</h2>
+                <h2>Базовая информация</h2>
               </div>
 
               <div class="form-group">
@@ -73,22 +73,22 @@
               </div>
 
               <div class="form-group">
-                <label for="characterDesc">Краткое описание</label>
+                <label for="characterDesc">Как пользователь воспринимает персонажа</label>
                 <textarea
                   id="characterDesc"
                   class="form-textarea medium"
-                  placeholder="Краткое описание персонажа"
+                  placeholder="Коротко: кто персонаж и как он воспринимается пользователем"
                 ></textarea>
               </div>
             </section>
 
             <section class="form-section">
               <div class="section-title-row">
-                <h2>Биография</h2>
+                <h2>Биография / Определение персонажа</h2>
               </div>
 
               <div class="form-group">
-                <label for="characterBio">Биография персонажа</label>
+                <label for="characterBio">Biography (детальная личность персонажа)</label>
 
                 <div class="editor-box">
                   <div class="editor-toolbar">
@@ -123,7 +123,7 @@
                     class="editable-box"
                     contenteditable="true"
                     spellcheck="false"
-                    data-placeholder="Подсказка: напишите биографию персонажа (прошлое, характер, мотивацию)"
+                    data-placeholder="Опиши характер, прошлое, поведение, мотивацию, манеру речи, сильные/слабые стороны"
                   ></div>
                 </div>
               </div>
@@ -131,7 +131,18 @@
 
             <section class="form-section">
               <div class="section-title-row">
-                <h2>Метки и доступ</h2>
+                <h2>Параметры персонажа</h2>
+              </div>
+
+              <div class="form-group">
+                <label for="characterType">Тип персонажа</label>
+                <select id="characterType" class="form-input">
+                  <option value="any">Любой / универсальный</option>
+                  <option value="female">Женский</option>
+                  <option value="male">Мужской</option>
+                  <option value="nonhuman">Нелюдь / монстр</option>
+                  <option value="custom">Кастомный</option>
+                </select>
               </div>
 
               <div class="form-group">
@@ -167,53 +178,62 @@
               </div>
 
               <div class="form-group">
-                <label for="characterRules">Ограничения и предупреждения</label>
+                <label for="characterRules">Правила персонажа / ограничения</label>
                 <textarea
                   id="characterRules"
                   class="form-textarea large"
-                  placeholder="Что бот не должен делать, возрастной рейтинг, темы-табу и т.д."
+                  placeholder="Что персонажу нельзя делать, табу, границы, ограничения тем"
                 ></textarea>
               </div>
             </section>
 
             <section class="form-section">
               <div class="section-title-row">
-                <h2>Поведение для ИИ (Ollama-ready)</h2>
+                <h2>Сценарий и блоки промпта</h2>
               </div>
 
               <div class="form-group">
-                <label for="characterScenario">Сценарий</label>
+                <label for="characterScenario">Scenario</label>
                 <textarea
                   id="characterScenario"
                   class="form-textarea medium"
-                  placeholder="Опишите контекст и обстановку разговоров вашего персонажа"
+                  placeholder="Сцена/сеттинг/исходная ситуация. Это показывается как сценарий."
                 ></textarea>
               </div>
 
               <div class="form-group">
-                <label for="roleplayRules">Правила отыгрыша роли</label>
+                <label for="roleplayRules">Личность и стиль общения</label>
                 <textarea
                   id="roleplayRules"
                   class="form-textarea medium"
-                  placeholder="Манера речи, стиль ответов, что персонаж обязан учитывать в каждом сообщении"
+                  placeholder="Тон, манера речи, как персонаж взаимодействует, какие эмоции проявляет"
                 ></textarea>
               </div>
 
               <div class="form-group">
-                <label for="memoryFacts">Ключевые факты о персонаже</label>
+                <label for="memoryFacts">Лор и факты для памяти</label>
                 <textarea
                   id="memoryFacts"
                   class="form-textarea medium"
-                  placeholder="Краткие факты, прошлое, отношения, цели. Каждый факт с новой строки"
+                  placeholder="Ключевые факты, отношения, лор, цели (каждый факт с новой строки)"
                 ></textarea>
               </div>
 
               <div class="form-group">
-                <label for="firstMessage">Первое сообщение вашего бота</label>
+                <label for="firstMessage">Начальное сообщение</label>
                 <textarea
                   id="firstMessage"
                   class="form-textarea medium"
-                  placeholder="Введите первое сообщение"
+                  placeholder="Первое сообщение персонажа пользователю"
+                ></textarea>
+              </div>
+
+              <div class="form-group">
+                <label for="exampleDialogues">Примеры диалогов</label>
+                <textarea
+                  id="exampleDialogues"
+                  class="form-textarea medium"
+                  placeholder="Пара примеров реплик персонажа, чтобы задать стиль ответов"
                 ></textarea>
               </div>
             </section>
@@ -300,6 +320,8 @@
       const roleplayRulesInput = document.getElementById("roleplayRules");
       const memoryFactsInput = document.getElementById("memoryFacts");
       const firstMessageInput = document.getElementById("firstMessage");
+      const exampleDialoguesInput = document.getElementById("exampleDialogues");
+      const characterTypeInput = document.getElementById("characterType");
       const visibilitySelect = document.getElementById("botVisibility");
 
       const previewImage = document.getElementById("previewImage");
@@ -525,6 +547,8 @@
           roleplayRules: roleplayRulesInput.value.trim(),
           memoryFacts: memoryFactsInput.value.trim(),
           characterRules: rulesInput.value.trim(),
+          characterType: characterTypeInput.value,
+          exampleDialogues: exampleDialoguesInput.value.trim(),
           tags: tags.join(", "),
         };
 
@@ -552,6 +576,12 @@
           "",
           "Ограничения и предупреждения:",
           promptData.characterRules || "Нет данных",
+          "",
+          "Тип персонажа:",
+          promptData.characterType || "any",
+          "",
+          "Примеры диалогов:",
+          promptData.exampleDialogues || "Нет данных",
           "",
           "Метки:",
           promptData.tags || "Нет меток",
@@ -752,18 +782,17 @@
           try {
             bot = JSON.parse(text);
           } catch {
-            console.error("RAW RESPONSE:", text);
-            alert("Сервер вернул не JSON при загрузке бота");
+            notifyUser("Сервер вернул некорректный ответ при загрузке бота", "error");
             return;
           }
 
           if (!response.ok) {
-            alert(bot.message || "Ошибка загрузки бота");
+            notifyUser(bot.message || "Ошибка загрузки бота", "error");
             return;
           }
 
           if (Number(bot.creator_id) !== Number(savedUser.id)) {
-            alert("Вы не можете редактировать этого бота");
+            notifyUser("Вы не можете редактировать этого бота", "error");
             window.location.href = "/pages/profile.html";
             return;
           }
@@ -779,11 +808,15 @@
             scenarioInput.value = promptMetadata.scenario || "";
             roleplayRulesInput.value = promptMetadata.roleplayRules || "";
             memoryFactsInput.value = promptMetadata.memoryFacts || "";
+            characterTypeInput.value = promptMetadata.characterType || "any";
+            exampleDialoguesInput.value = promptMetadata.exampleDialogues || "";
           } else {
             rulesInput.value = "";
             scenarioInput.value = bot.system_prompt || "";
             roleplayRulesInput.value = "";
             memoryFactsInput.value = "";
+            characterTypeInput.value = "any";
+            exampleDialoguesInput.value = "";
           }
 
           firstMessageInput.value = bot.greeting_message || "";
@@ -821,8 +854,7 @@
 
           renderTags();
         } catch (error) {
-          console.error("Ошибка загрузки бота для редактирования:", error);
-          alert("Ошибка загрузки данных бота");
+          notifyUser("Ошибка загрузки данных бота", "error");
         }
       }
 
@@ -830,7 +862,7 @@
         e.preventDefault();
 
         if (!savedUser || !savedUser.id) {
-          alert("Вы не авторизованы");
+          notifyUser("Вы не авторизованы", "error");
           return;
         }
 
@@ -848,7 +880,7 @@
         };
 
         if (!characterData.name) {
-          alert("Введите имя персонажа");
+          notifyUser("Введите имя персонажа", "warning");
           return;
         }
 
@@ -879,19 +911,17 @@
           try {
             data = JSON.parse(text);
           } catch {
-            console.error("RAW RESPONSE:", text);
-            alert("Сервер вернул не JSON");
+            notifyUser("Сервер вернул некорректный ответ", "error");
             return;
           }
 
-          alert(data.message);
+          notifyUser(data.message || "Готово", response.ok ? "success" : "error");
 
           if (response.ok) {
             window.location.href = "/pages/profile.html?v=" + Date.now();
           }
         } catch (error) {
-          console.error("Ошибка сохранения персонажа:", error);
-          alert("Ошибка соединения с сервером");
+          notifyUser("Ошибка соединения с сервером", "error");
         }
       });
 
@@ -921,19 +951,17 @@
           try {
             data = JSON.parse(text);
           } catch {
-            console.error("RAW RESPONSE:", text);
-            alert("Сервер вернул не JSON");
+            notifyUser("Сервер вернул некорректный ответ", "error");
             return;
           }
 
-          alert(data.message);
+          notifyUser(data.message || "Готово", response.ok ? "success" : "error");
 
           if (response.ok) {
             window.location.href = "/pages/profile.html?v=" + Date.now();
           }
         } catch (error) {
-          console.error("Ошибка удаления:", error);
-          alert("Ошибка удаления бота");
+          notifyUser("Ошибка удаления бота", "error");
         }
       });
 
