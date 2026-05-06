@@ -552,6 +552,14 @@
             ? `/pages/profile.html?authorId=${encodeURIComponent(authorId)}&username=${encodeURIComponent(authorName)}`
             : `/pages/profile.html?username=${encodeURIComponent(authorName)}`;
 
+          const activePid = localStorage.getItem(
+            `activePersonaId_${savedUser.id}`,
+          );
+          const chatPersonaQs =
+            activePid && String(activePid).trim() !== ""
+              ? `&persona=${encodeURIComponent(activePid)}`
+              : "";
+
           card.innerHTML = `
             <div class="created-bot-cover-wrap">
               <a href="/pages/bot.html?id=${bot.id}" class="created-bot-cover">
@@ -565,7 +573,7 @@
               <p>${escapeHtml(bot.short_description || "Описание отсутствует")}</p>
               <div class="created-bot-actions">
                 <a href="/pages/bot.html?id=${bot.id}" class="created-bot-btn">Открыть</a>
-                <a href="/pages/chat.html?id=${bot.id}" class="created-bot-btn primary">Чат</a>
+                <a href="/pages/chat.html?id=${bot.id}${chatPersonaQs}" class="created-bot-btn primary">Чат</a>
               </div>
             </div>
           `;

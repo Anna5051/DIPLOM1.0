@@ -109,7 +109,11 @@
     }
 
     function getChatLink(chat) {
-      return `./chat.html?id=${chat.bot_id}`;
+      const personaPart =
+        chat.persona_id != null && chat.persona_id !== ""
+          ? `&persona=${encodeURIComponent(chat.persona_id)}`
+          : "";
+      return `./chat.html?id=${chat.bot_id}${personaPart}`;
     }
 
     function renderChats(items) {

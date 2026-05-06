@@ -232,7 +232,7 @@
             <span>💬 ${chat.messages_count || 0} сообщений</span>
           </div>
 
-          <a href="/pages/chat.html?id=${chat.bot_id}" class="continue-btn">
+          <a href="/pages/chat.html?id=${chat.bot_id}${chat.persona_id != null && chat.persona_id !== "" ? `&persona=${encodeURIComponent(chat.persona_id)}` : ""}" class="continue-btn">
             Продолжить
           </a>
         </div>
@@ -267,6 +267,14 @@ function renderBots(items) {
       .map((tag) => tag.trim())
       .filter(Boolean)
       .slice(0, 4);
+
+    const mainChatPersonaPid = localStorage.getItem(
+      `activePersonaId_${savedUser.id}`,
+    );
+    const mainChatPersonaQs =
+      mainChatPersonaPid && String(mainChatPersonaPid).trim() !== ""
+        ? `&persona=${encodeURIComponent(mainChatPersonaPid)}`
+        : "";
 
     card.innerHTML = `
       <div class="bot-image-wrap">
@@ -307,7 +315,7 @@ function renderBots(items) {
 
         <div class="bot-actions">
           <a href="/pages/bot.html?id=${bot.id}" class="card-btn">Открыть</a>
-          <a href="/pages/chat.html?id=${bot.id}" class="card-btn primary">Чат</a>
+          <a href="/pages/chat.html?id=${bot.id}${mainChatPersonaQs}" class="card-btn primary">Чат</a>
         </div>
       </div>
     `;
@@ -420,6 +428,7 @@ function renderBots(items) {
       const chats = data.map((chat) => ({
         id: chat.id,
         bot_id: chat.bot_id,
+        persona_id: chat.persona_id,
         bot_name: chat.bot_name,
         avatar: chat.avatar_url || "/img/icon.svg",
         summary: chat.summary,

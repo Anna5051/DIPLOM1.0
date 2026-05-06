@@ -80,6 +80,25 @@
     </div>
   </div>
 
+  <div
+    id="chatConfirmModal"
+    class="modal hidden"
+    role="dialog"
+    aria-modal="true"
+    aria-labelledby="chatConfirmHeading"
+  >
+    <div class="modal-card chat-confirm-card">
+      <div class="modal-head">
+        <h2 id="chatConfirmHeading">Подтверждение</h2>
+      </div>
+      <p id="chatConfirmMessage" class="modal-subtitle chat-confirm-message"></p>
+      <div class="modal-actions chat-confirm-actions">
+        <button type="button" id="chatConfirmCancel" class="ghost-btn">Отмена</button>
+        <button type="button" id="chatConfirmOk" class="secondary-btn chat-confirm-ok">Удалить</button>
+      </div>
+    </div>
+  </div>
+
   <main class="chat-page">
     <section class="notice">
       Все ответы являются художественной генерацией. Выбранная персона влияет на стиль общения.
@@ -128,7 +147,17 @@
   <div id="pageToast" class="page-toast hidden" role="status" aria-live="polite"></div>
 
   <script>
-    const API_BASE = "http://127.0.0.1:3000";
+    let API_BASE =
+      typeof window !== "undefined" && window.location && window.location.origin
+        ? window.location.origin
+        : "http://127.0.0.1:3000";
+    if (
+      !API_BASE ||
+      API_BASE === "null" ||
+      (typeof API_BASE === "string" && API_BASE.startsWith("file:"))
+    ) {
+      API_BASE = "http://127.0.0.1:3000";
+    }
     const brandLink = document.querySelector(".brand-link");
     if (brandLink) {
       brandLink.href = localStorage.getItem("user")
@@ -142,11 +171,15 @@
       window.location.href = "/pages/autorization.html";
     }
 
-    const userId = savedUser.id;
+    const userId = Number(savedUser.id);
+    if (!Number.isFinite(userId) || userId < 1) {
+      window.location.href = "/pages/autorization.html";
+    }
 
     const params = new URLSearchParams(window.location.search);
     const botId = params.get("id");
-    const forceNew = params.get("new");
+    const forceNew = params.get("new") === "1";
+    const urlPersonaId = params.get("persona");
 
     const chatForm = document.getElementById("chatForm");
     const chatInput = document.getElementById("chatInput");
@@ -217,14 +250,18 @@
       return div.innerHTML;
     }
 
-    /** Убирает ведущие пробелы/переносы и отступы после \\n — при pre-wrap они давали лишний отступ первой строки. */
+    /** Убирает ведущие пробелы у каждой строки (в т.ч. U+3000, NBSP) — при pre-wrap модель часто даёт «левый отступ». */
     function normalizeChatMessageText(text) {
       if (text == null) return "";
+      const lineLead = /^[\t \u00a0\u3000\u2000-\u200f\u202f\u205f\ufeff]+/;
       return String(text)
         .replace(/^\uFEFF/, "")
-        .replace(/^\s+/, "")
         .replace(/\r\n/g, "\n")
-        .replace(/\n[\t \u00a0\u2000-\u200b\ufeff]+/g, "\n");
+        .replace(/\r/g, "\n")
+        .split("\n")
+        .map((line) => line.replace(lineLead, ""))
+        .join("\n")
+        .replace(/^\n+/, "");
     }
 
     function toPlainText(value) {
@@ -326,6 +363,45 @@
       }, 2200);
     }
 
+    function showChatConfirm(message, options = {}) {
+      const confirmLabel = options.confirmLabel || "Удалить";
+      return new Promise((resolve) => {
+        const modal = document.getElementById("chatConfirmModal");
+        const textEl = document.getElementById("chatConfirmMessage");
+        const okBtn = document.getElementById("chatConfirmOk");
+        const cancelBtn = document.getElementById("chatConfirmCancel");
+
+        textEl.textContent = message;
+        okBtn.textContent = confirmLabel;
+
+        const finish = (value) => {
+          modal.classList.add("hidden");
+          modal.removeEventListener("click", onBackdrop);
+          document.removeEventListener("keydown", onKey);
+          okBtn.removeEventListener("click", onOk);
+          cancelBtn.removeEventListener("click", onCancel);
+          resolve(value);
+        };
+
+        const onOk = () => finish(true);
+        const onCancel = () => finish(false);
+        const onBackdrop = (e) => {
+          if (e.target === modal) finish(false);
+        };
+        const onKey = (e) => {
+          if (e.key === "Escape") finish(false);
+        };
+
+        modal.addEventListener("click", onBackdrop);
+        document.addEventListener("keydown", onKey);
+        okBtn.addEventListener("click", onOk);
+        cancelBtn.addEventListener("click", onCancel);
+
+        modal.classList.remove("hidden");
+        okBtn.focus();
+      });
+    }
+
     function setActivePersona(persona) {
       if (persona) {
         activePersona = {
@@ -350,6 +426,30 @@
       }
     }
 
+    function personaStubFromNumericId(rawId) {
+      const n = Number(rawId);
+      if (!Number.isFinite(n) || n <= 0) return null;
+      return {
+        id: n,
+        name: "Персона",
+        description: "",
+        persona_prompt: "",
+        avatar_url: "",
+      };
+    }
+
+    /** id для API: из объекта персоны или из ?persona= (иначе запрос уйдёт без persona_id и откроется чужой NULL-чат) */
+    function getPersonaIdForApi() {
+      if (activePersona?.id != null && Number.isFinite(Number(activePersona.id))) {
+        return Number(activePersona.id);
+      }
+      if (urlPersonaId != null && String(urlPersonaId).trim() !== "") {
+        const n = Number(urlPersonaId);
+        if (Number.isFinite(n) && n > 0) return n;
+      }
+      return null;
+    }
+
     async function loadPersonas() {
       try {
         const response = await fetch(`${API_BASE}/personas/${userId}`);
@@ -361,16 +461,36 @@
 
         personas = Array.isArray(data) ? data : [];
 
-        const savedPersonaId = localStorage.getItem(`activePersonaId_${userId}`);
+        const savedPersonaId =
+          urlPersonaId != null && String(urlPersonaId).trim() !== ""
+            ? urlPersonaId
+            : localStorage.getItem(`activePersonaId_${userId}`);
 
         const foundPersona = personas.find((persona) => {
           return Number(persona.id) === Number(savedPersonaId);
         });
 
-        setActivePersona(foundPersona || null);
+        if (foundPersona) {
+          setActivePersona(foundPersona);
+        } else if (
+          savedPersonaId != null &&
+          String(savedPersonaId).trim() !== ""
+        ) {
+          const stub = personaStubFromNumericId(savedPersonaId);
+          if (stub) setActivePersona(stub);
+          else setActivePersona(null);
+        } else {
+          setActivePersona(null);
+        }
       } catch {
         personas = [];
-        setActivePersona(null);
+        const fallbackId =
+          urlPersonaId != null && String(urlPersonaId).trim() !== ""
+            ? urlPersonaId
+            : localStorage.getItem(`activePersonaId_${userId}`);
+        const stub = personaStubFromNumericId(fallbackId);
+        if (stub) setActivePersona(stub);
+        else setActivePersona(null);
       }
     }
 
@@ -423,9 +543,10 @@
 
         item.addEventListener("click", () => {
           selectedPersonaInModal = persona;
-          setActivePersona(persona);
-          renderPersonas();
-          closePersonaModal();
+          const next = new URL(window.location.href);
+          next.searchParams.set("persona", String(persona.id));
+          next.searchParams.delete("new");
+          window.location.href = next.pathname + next.search + next.hash;
         });
 
         const moreBtn = item.querySelector(".persona-more");
@@ -799,14 +920,42 @@
       }
 
       try {
-        const response = await fetch(
-          `${API_BASE}/chat-by-bot/${botId}?user_id=${userId}&new=${forceNew ? "1" : "0"}`
-        );
+        const pid = getPersonaIdForApi();
+        const personaQuery =
+          pid != null
+            ? `&persona_id=${encodeURIComponent(pid)}&persona=${encodeURIComponent(pid)}`
+            : "";
 
-        const data = await safeReadJson(response);
+        const chatByBotUrl = (isNew) =>
+          `${API_BASE}/chat-by-bot/${encodeURIComponent(botId)}?user_id=${encodeURIComponent(userId)}&new=${isNew ? "1" : "0"}${personaQuery}`;
+
+        let response = await fetch(chatByBotUrl(forceNew));
+        let data = await safeReadJson(response);
 
         if (!response.ok) {
           throw new Error(data.message || "Ошибка загрузки чата");
+        }
+
+        if (pid != null && !forceNew && data.chat) {
+          const gotPid =
+            data.chat.persona_id == null || data.chat.persona_id === ""
+              ? null
+              : Number(data.chat.persona_id);
+          if (gotPid !== Number(pid)) {
+            showToast("Открыт неверный чат — создана отдельная ветка для этой персоны.");
+            response = await fetch(chatByBotUrl(true));
+            data = await safeReadJson(response);
+            if (!response.ok) {
+              throw new Error(data.message || "Ошибка загрузки чата");
+            }
+            try {
+              const u = new URL(window.location.href);
+              u.searchParams.delete("new");
+              history.replaceState(null, "", u.pathname + u.search + u.hash);
+            } catch {
+              /* ignore */
+            }
+          }
         }
 
         currentChatId = data.chat.id;
@@ -1009,7 +1158,7 @@
         }
 
         if (action === "delete") {
-          const ok = confirm("Удалить это сообщение?");
+          const ok = await showChatConfirm("Удалить это сообщение?");
           if (!ok) return;
 
           await deleteMessageOnServer(messageId);
@@ -1060,7 +1209,9 @@
         return;
       }
 
-      const ok = confirm("Удалить все сообщения этого чата?");
+      const ok = await showChatConfirm("Удалить все сообщения этого чата?", {
+        confirmLabel: "Очистить",
+      });
       if (!ok) return;
 
       try {
@@ -1095,7 +1246,11 @@
         return;
       }
 
-      window.location.href = `/pages/chat.html?id=${botId}&new=${Date.now()}`;
+      const qs = [`id=${encodeURIComponent(botId)}`, "new=1"];
+      if (activePersona?.id != null) {
+        qs.push(`persona=${encodeURIComponent(activePersona.id)}`);
+      }
+      window.location.href = `/pages/chat.html?${qs.join("&")}`;
     });
 
     (async () => {

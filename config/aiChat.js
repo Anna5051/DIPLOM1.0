@@ -130,6 +130,7 @@ async function buildBotReplyFromHistory(
   personaPrompt,
   personaName,
   upperMessageId = null,
+  flags = {},
 ) {
   const historySql = upperMessageId
     ? `
@@ -161,14 +162,32 @@ async function buildBotReplyFromHistory(
     personaPrompt: String(personaPrompt || ""),
     personaName: String(personaName || ""),
     history: mapMessagesToOllamaHistory(historyRows),
+    regenerate: Boolean(flags.regenerate),
   });
 }
 
-async function requestOllamaChat(model, messages) {
+function buildSamplingOptions(regenerate) {
+  if (!regenerate) return {};
+  return {
+    temperature: Math.min(0.92, OLLAMA_TEMPERATURE + 0.2),
+    top_p: Math.max(OLLAMA_TOP_P, 0.9),
+    repeat_penalty: Math.min(1.3, OLLAMA_REPEAT_PENALTY + 0.12),
+  };
+}
+
+async function requestOllamaChat(model, messages, optionOverrides = {}) {
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), OLLAMA_TIMEOUT_MS);
 
   try {
+    const options = {
+      temperature: OLLAMA_TEMPERATURE,
+      top_p: OLLAMA_TOP_P,
+      repeat_penalty: OLLAMA_REPEAT_PENALTY,
+      seed: Math.floor(Math.random() * 2147483647),
+      ...optionOverrides,
+    };
+
     const response = await fetch(`${OLLAMA_BASE_URL}/api/chat`, {
       method: "POST",
       headers: {
@@ -178,11 +197,7 @@ async function requestOllamaChat(model, messages) {
         model,
         stream: false,
         messages,
-        options: {
-          temperature: OLLAMA_TEMPERATURE,
-          top_p: OLLAMA_TOP_P,
-          repeat_penalty: OLLAMA_REPEAT_PENALTY,
-        },
+        options,
       }),
       signal: controller.signal,
     });
@@ -261,7 +276,8 @@ function hasBadRoleplayStructure(text) {
     .filter(Boolean);
   const hasActionLike = lines.some((line) => line.startsWith("*") && line.endsWith("*"));
   const hasQuoteLike = /["«][^"»]+["»]/.test(value);
-  return lines.length !== 3 || !hasActionLike || !hasQuoteLike;
+  /* Не требуем ровно 3 строки — иначе модель часто «проваливается» в один и тот же запасной шаблон. */
+  return lines.length < 3 || !hasActionLike || !hasQuoteLike;
 }
 
 function buildHardSafeFallbackReply() {
@@ -281,7 +297,14 @@ function isReplyAcceptable(text, botName, personaName) {
   );
 }
 
-async function enforceReplyQuality(model, baseMessages, draftReply, botName, personaName) {
+async function enforceReplyQuality(
+  model,
+  baseMessages,
+  draftReply,
+  botName,
+  personaName,
+  samplingOptions = {},
+) {
   let currentReply = String(draftReply || "").trim();
   let attempts = 0;
 
@@ -303,15 +326,61 @@ async function enforceReplyQuality(model, baseMessages, draftReply, botName, per
       "6) Верни только итоговый ответ без пояснений.",
     ].join("\n");
 
-    currentReply = await requestOllamaChat(model, [
-      ...baseMessages,
-      { role: "assistant", content: currentReply },
-      { role: "user", content: rewriteInstruction },
-    ]);
+    currentReply = await requestOllamaChat(
+      model,
+      [
+        ...baseMessages,
+        { role: "assistant", content: currentReply },
+        { role: "user", content: rewriteInstruction },
+      ],
+      samplingOptions,
+    );
     attempts += 1;
   }
 
   if (!isReplyAcceptable(currentReply, botName, personaName)) {
+    const variantHint = [
+      "Сгенерируй новый вариант ответа на последнюю реплику пользователя.",
+      "Другие слова, образы и детали — не копируй и не перефразируй дословно предыдущие черновики.",
+      "Формат: минимум 3 строки — *действие от первого лица*, реплика в кавычках, затем *короткое действие или эмоция*.",
+      "Только я/мне о себе; не пиши за пользователя.",
+      "Верни только текст ответа.",
+    ].join("\n");
+
+    const fresh = await requestOllamaChat(
+      model,
+      [
+        ...baseMessages,
+        {
+          role: "user",
+          content: variantHint,
+        },
+      ],
+      {
+        ...samplingOptions,
+        temperature: Math.min(0.95, OLLAMA_TEMPERATURE + 0.38),
+        top_p: 0.93,
+        repeat_penalty: Math.min(1.35, OLLAMA_REPEAT_PENALTY + 0.15),
+      },
+    );
+    const refined = String(fresh || "").trim();
+    if (isReplyAcceptable(refined, botName, personaName)) {
+      return refined;
+    }
+    if (
+      refined.length >= MIN_BOT_REPLY_CHARS &&
+      !containsUserAgencyViolation(refined, personaName) &&
+      !hasThirdPersonSelfReference(refined, botName)
+    ) {
+      return refined;
+    }
+    if (
+      currentReply.length >= MIN_BOT_REPLY_CHARS &&
+      !containsUserAgencyViolation(currentReply, personaName) &&
+      !hasThirdPersonSelfReference(currentReply, botName)
+    ) {
+      return currentReply;
+    }
     return buildHardSafeFallbackReply();
   }
 
@@ -324,7 +393,10 @@ async function generateBotReply({
   personaPrompt,
   personaName,
   history,
+  regenerate = false,
 }) {
+  const samplingOptions = buildSamplingOptions(regenerate);
+
   const messages = [
     {
       role: "system",
@@ -334,8 +406,15 @@ async function generateBotReply({
   ];
 
   try {
-    let reply = await requestOllamaChat(OLLAMA_MODEL, messages);
-    reply = await enforceReplyQuality(OLLAMA_MODEL, messages, reply, botName, personaName);
+    let reply = await requestOllamaChat(OLLAMA_MODEL, messages, samplingOptions);
+    reply = await enforceReplyQuality(
+      OLLAMA_MODEL,
+      messages,
+      reply,
+      botName,
+      personaName,
+      samplingOptions,
+    );
     if (isReplyAcceptable(reply, botName, personaName)) {
       return reply;
     }
@@ -353,27 +432,29 @@ async function generateBotReply({
       },
     ];
 
-    const expandedDraft = await requestOllamaChat(OLLAMA_MODEL, expansionMessages);
+    const expandedDraft = await requestOllamaChat(OLLAMA_MODEL, expansionMessages, samplingOptions);
     const expanded = await enforceReplyQuality(
       OLLAMA_MODEL,
       messages,
       expandedDraft,
       botName,
       personaName,
+      samplingOptions,
     );
-    return isReplyAcceptable(expanded, botName, personaName) ? expanded : buildHardSafeFallbackReply();
+    return expanded;
   } catch (primaryError) {
     if (!OLLAMA_FALLBACK_MODEL || OLLAMA_FALLBACK_MODEL === OLLAMA_MODEL) {
       throw primaryError;
     }
 
-    let fallbackReply = await requestOllamaChat(OLLAMA_FALLBACK_MODEL, messages);
+    let fallbackReply = await requestOllamaChat(OLLAMA_FALLBACK_MODEL, messages, samplingOptions);
     fallbackReply = await enforceReplyQuality(
       OLLAMA_FALLBACK_MODEL,
       messages,
       fallbackReply,
       botName,
       personaName,
+      samplingOptions,
     );
     if (isReplyAcceptable(fallbackReply, botName, personaName)) {
       return fallbackReply;
@@ -394,6 +475,7 @@ async function generateBotReply({
     const fallbackExpanded = await requestOllamaChat(
       OLLAMA_FALLBACK_MODEL,
       fallbackExpansionMessages,
+      samplingOptions,
     );
     const fallbackExpandedChecked = await enforceReplyQuality(
       OLLAMA_FALLBACK_MODEL,
@@ -401,10 +483,9 @@ async function generateBotReply({
       fallbackExpanded,
       botName,
       personaName,
+      samplingOptions,
     );
-    return isReplyAcceptable(fallbackExpandedChecked, botName, personaName)
-      ? fallbackExpandedChecked
-      : buildHardSafeFallbackReply();
+    return fallbackExpandedChecked;
   }
 }
 

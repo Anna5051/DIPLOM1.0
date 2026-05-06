@@ -10,6 +10,10 @@ const db = mysql.createConnection({
 
 db.connect((err) => {
   if (err) {
+    console.error(
+      "БД: не удалось подключиться при старте —",
+      err.code || err.message,
+    );
     process.exit(1);
   }
 });

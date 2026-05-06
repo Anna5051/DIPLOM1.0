@@ -261,7 +261,14 @@
     }
 
     function getChatUrl(bot) {
-      return `./chat.html?id=${bot.id}`;
+      const pid = savedUser?.id
+        ? localStorage.getItem(`activePersonaId_${savedUser.id}`)
+        : "";
+      const personaQs =
+        pid && String(pid).trim() !== ""
+          ? `&persona=${encodeURIComponent(pid)}`
+          : "";
+      return `./chat.html?id=${bot.id}${personaQs}`;
     }
 
     function getFavoriteBotKey(botId) {

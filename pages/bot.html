@@ -71,18 +71,90 @@
           </div>
 
           <div class="bot-main-actions">
-            <button class="primary-action" type="button" id="startChatBtn">
-              Начать чат
-            </button>
+            <div class="bot-actions-top-row">
+              <button
+                type="button"
+                class="persona-playing-card"
+                id="personaPlayingCard"
+                aria-haspopup="dialog"
+                aria-controls="chatPersonaModal"
+              >
+                <img
+                  class="persona-playing-avatar"
+                  id="playingAsAvatar"
+                  src="/img/icon.svg"
+                  alt=""
+                />
+                <div class="persona-playing-text">
+                  <span class="persona-playing-label">Играете за</span>
+                  <span class="persona-playing-name" id="playingAsName"
+                    >Не выбрана</span
+                  >
+                </div>
+                <span class="persona-playing-chevron" aria-hidden="true"
+                  >›</span
+                >
+              </button>
+              <button
+                class="bot-edit-btn"
+                type="button"
+                id="editBotBtn"
+                style="display: none"
+              >
+                Редактировать
+              </button>
+            </div>
 
-            <button
-              class="secondary-action"
-              type="button"
-              id="editBotBtn"
-              style="display: none"
-            >
-              Редактировать
-            </button>
+            <div class="bot-chat-actions">
+              <div class="chat-actions-group" id="chatActionsFresh">
+                <button type="button" class="janitor-chat-btn" id="startChatBtn">
+                  <svg
+                    class="janitor-chat-icon"
+                    viewBox="0 0 24 24"
+                    width="22"
+                    height="22"
+                    aria-hidden="true"
+                  >
+                    <path
+                      fill="currentColor"
+                      d="M4 4h12v9H7l-3 3V4zm14 0h2v12h-6v-2h4V4zm-8 9H8V9h6v4h-2v-1H10v1z"
+                    />
+                  </svg>
+                  <span id="startChatLabel">Чат с персонажем</span>
+                </button>
+              </div>
+              <div
+                class="chat-actions-group chat-actions-group--resume is-hidden"
+                id="chatActionsResume"
+              >
+                <button
+                  type="button"
+                  class="janitor-chat-btn janitor-chat-btn--primary"
+                  id="continueChatBtn"
+                >
+                  <svg
+                    class="janitor-chat-icon"
+                    viewBox="0 0 24 24"
+                    width="22"
+                    height="22"
+                    aria-hidden="true"
+                  >
+                    <path
+                      fill="currentColor"
+                      d="M4 4h12v9H7l-3 3V4zm14 0h2v12h-6v-2h4V4zm-8 9H8V9h6v4h-2v-1H10v1z"
+                    />
+                  </svg>
+                  <span>Продолжить последний чат</span>
+                </button>
+                <button
+                  type="button"
+                  class="janitor-chat-btn janitor-chat-btn--outline"
+                  id="newChatHeroBtn"
+                >
+                  Начать новый чат
+                </button>
+              </div>
+            </div>
           </div>
 
           <section class="bot-tags-inline">
@@ -144,25 +216,49 @@
 
     </main>
 
-    <div class="persona-modal hidden" id="chatPersonaModal">
-      <div class="persona-modal-card">
+    <div
+      class="persona-modal hidden"
+      id="chatPersonaModal"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="chatPersonaModalTitle"
+    >
+      <div class="persona-modal-card persona-modal-card--janitor">
         <div class="persona-modal-head">
-          <h2>Выбор персоны для чата</h2>
-          <button type="button" id="closeChatPersonaModalBtn">×</button>
+          <h2 id="chatPersonaModalTitle">Кто будет общаться с персонажем?</h2>
+          <button
+            type="button"
+            class="persona-modal-close-round"
+            id="closeChatPersonaModalBtn"
+            aria-label="Закрыть"
+          >
+            ×
+          </button>
         </div>
 
-        <p class="persona-modal-subtitle">
-          Выбери, от лица какой персоны начать общение с этим персонажем.
-        </p>
+        <label class="persona-modal-search-wrap">
+          <span class="visually-hidden">Поиск персон</span>
+          <input
+            type="search"
+            id="personaModalSearch"
+            class="persona-modal-search"
+            placeholder="Поиск персон…"
+            autocomplete="off"
+          />
+        </label>
+
+        <button type="button" class="persona-without-link" id="chatWithoutPersonaBtn">
+          Общаться без персоны
+        </button>
 
         <div class="persona-modal-list" id="chatPersonaList"></div>
 
-        <div class="persona-modal-actions">
-          <button type="button" class="secondary-action" id="chatWithoutPersonaBtn">
-            Без персоны
-          </button>
-          <button type="button" class="primary-action" id="confirmChatPersonaBtn">
-            Начать чат
+        <div class="persona-modal-actions persona-modal-actions--janitor">
+          <a href="/pages/person.html" class="persona-modal-manage-btn"
+            >Управление</a
+          >
+          <button type="button" class="persona-modal-confirm-btn" id="confirmChatPersonaBtn">
+            Подтвердить
           </button>
         </div>
       </div>
@@ -198,6 +294,8 @@
         "accordionSystemPrompt",
       );
       const toggleStoryBtn = document.getElementById("toggleStoryBtn");
+      const continueChatBtn = document.getElementById("continueChatBtn");
+      const newChatHeroBtn = document.getElementById("newChatHeroBtn");
       const startChatBtn = document.getElementById("startChatBtn");
       const editBotBtn = document.getElementById("editBotBtn");
       const topAvatar = document.getElementById("topAvatar");
@@ -215,6 +313,16 @@
       const confirmChatPersonaBtn = document.getElementById(
         "confirmChatPersonaBtn",
       );
+      const personaPlayingCard = document.getElementById("personaPlayingCard");
+      const playingAsName = document.getElementById("playingAsName");
+      const playingAsAvatar = document.getElementById("playingAsAvatar");
+      const startChatLabel = document.getElementById("startChatLabel");
+      const chatPersonaModalTitle = document.getElementById(
+        "chatPersonaModalTitle",
+      );
+      const personaModalSearch = document.getElementById("personaModalSearch");
+      const chatActionsFresh = document.getElementById("chatActionsFresh");
+      const chatActionsResume = document.getElementById("chatActionsResume");
 
       let storyExpanded = false;
       let fullStoryText = "";
@@ -222,6 +330,9 @@
       let personas = [];
       let activePersona = null;
       let selectedPersonaInModal = null;
+      let personaModalFilter = "";
+      /** Пользователь нажал «Общаться без персоны» — следующий клик «Чат с…» ведёт в чат без персоны, а не в модалку */
+      let explicitChatWithoutPersona = false;
 
 
       const savedTopAvatar =
@@ -382,44 +493,113 @@
         localStorage.setItem(`activePersonaId_${savedUser.id}`, String(persona.id));
       }
 
+      function updatePlayingAsUI() {
+        if (playingAsName && playingAsAvatar) {
+          if (activePersona) {
+            playingAsName.textContent = activePersona.name || "Без имени";
+            setImageWithFallback(playingAsAvatar, activePersona.avatar_url);
+          } else {
+            playingAsName.textContent = "Не выбрана";
+            playingAsAvatar.src = "/img/icon.svg";
+          }
+        }
+        const bn = currentBot?.name || "персонажем";
+        if (startChatLabel) {
+          startChatLabel.textContent = `Чат с ${bn}`;
+        }
+      }
+
+      function updateChatModalTitle() {
+        if (!chatPersonaModalTitle) return;
+        const bn = currentBot?.name || "персонажем";
+        chatPersonaModalTitle.textContent = `Кто будет общаться с ${bn}?`;
+      }
+
+      function getFilteredPersonas() {
+        const q = personaModalFilter;
+        if (!q) return personas;
+        return personas.filter((p) => {
+          const hay = `${p.name || ""} ${p.description || ""}`.toLowerCase();
+          return hay.includes(q);
+        });
+      }
+
       function renderChatPersonaModalList() {
         chatPersonaList.innerHTML = "";
 
         if (!personas.length) {
           const empty = document.createElement("div");
           empty.className = "persona-modal-empty";
-          empty.textContent = "У тебя пока нет персон";
+          empty.textContent = "У вас пока нет персон. Создайте их в разделе «Управление».";
           chatPersonaList.appendChild(empty);
           return;
         }
 
-        personas.forEach((persona) => {
+        const list = getFilteredPersonas();
+        if (!list.length) {
+          const empty = document.createElement("div");
+          empty.className = "persona-modal-empty";
+          empty.textContent = "Ничего не найдено";
+          chatPersonaList.appendChild(empty);
+          return;
+        }
+
+        list.forEach((persona) => {
           const isSelected =
             selectedPersonaInModal &&
             Number(selectedPersonaInModal.id) === Number(persona.id);
 
-          const item = document.createElement("button");
-          item.type = "button";
+          const rawDesc = String(persona.description || "Без описания").trim();
+          const shortDesc =
+            rawDesc.length > 140 ? `${rawDesc.slice(0, 140)}…` : rawDesc;
+
+          const item = document.createElement("div");
           item.className = isSelected
-            ? "persona-modal-item active"
-            : "persona-modal-item";
+            ? "persona-modal-row active"
+            : "persona-modal-row";
+          item.setAttribute("role", "button");
+          item.tabIndex = 0;
           item.innerHTML = `
-            <img src="${persona.avatar_url || "/img/icon.svg"}" alt="persona">
-            <div>
+            <img src="${escapeHtml(persona.avatar_url || "/img/icon.svg")}" alt="">
+            <div class="persona-modal-row-main">
               <strong>${escapeHtml(persona.name || "Без имени")}</strong>
-              <span>${escapeHtml(persona.description || "Без описания")}</span>
+              <span class="persona-modal-row-desc">${escapeHtml(shortDesc)}</span>
             </div>
+            <button type="button" class="persona-row-info" title="${escapeHtml(rawDesc)}" aria-label="Описание персоны">i</button>
+            <span class="persona-row-radio" aria-hidden="true"></span>
           `;
-          item.addEventListener("click", () => {
+          const pick = () => {
             selectedPersonaInModal = persona;
             renderChatPersonaModalList();
+          };
+          const infoBtn = item.querySelector(".persona-row-info");
+          if (infoBtn) {
+            infoBtn.addEventListener("click", (e) => {
+              e.preventDefault();
+              e.stopPropagation();
+            });
+          }
+          item.addEventListener("click", (e) => {
+            if (e.target.closest(".persona-row-info")) return;
+            pick();
+          });
+          item.addEventListener("keydown", (e) => {
+            if (e.key === "Enter" || e.key === " ") {
+              e.preventDefault();
+              pick();
+            }
           });
           chatPersonaList.appendChild(item);
         });
       }
 
       function openChatPersonaModal() {
+        if (personaModalSearch) {
+          personaModalSearch.value = "";
+          personaModalFilter = "";
+        }
         selectedPersonaInModal = activePersona;
+        updateChatModalTitle();
         renderChatPersonaModalList();
         chatPersonaModal.classList.remove("hidden");
       }
@@ -428,11 +608,56 @@
         chatPersonaModal.classList.add("hidden");
       }
 
-      function goToChatWithPersona(persona) {
-        const personaQuery = persona?.id
-          ? `&persona=${encodeURIComponent(persona.id)}`
-          : "";
-        window.location.href = `/pages/chat.html?id=${botId}${personaQuery}`;
+      function goToChatWithPersona(persona, options = {}) {
+        const forceNew = Boolean(options.forceNew);
+        const q = [`id=${encodeURIComponent(botId)}`];
+        if (persona?.id != null) {
+          q.push(`persona=${encodeURIComponent(persona.id)}`);
+        }
+        if (forceNew) q.push("new=1");
+        window.location.href = `/pages/chat.html?${q.join("&")}`;
+      }
+
+      function getBotPagePersonaIdForApi() {
+        if (activePersona?.id != null && Number.isFinite(Number(activePersona.id))) {
+          return Number(activePersona.id);
+        }
+        const raw = localStorage.getItem(`activePersonaId_${savedUser.id}`);
+        if (raw != null && String(raw).trim() !== "") {
+          const n = Number(raw);
+          if (Number.isFinite(n) && n > 0) return n;
+        }
+        return null;
+      }
+
+      async function refreshBotChatActions() {
+        updatePlayingAsUI();
+        if (!savedUser?.id || !botId || !chatActionsFresh || !chatActionsResume) {
+          return;
+        }
+
+        const base = `/chat-thread/${encodeURIComponent(botId)}?user_id=${encodeURIComponent(savedUser.id)}`;
+        const pid = getBotPagePersonaIdForApi();
+        const url =
+          pid != null ? `${base}&persona_id=${encodeURIComponent(pid)}` : base;
+
+        try {
+          const response = await fetch(url);
+          const data = await response.json();
+          const showContinue =
+            response.ok && data.exists && data.has_user_messages;
+
+          if (showContinue) {
+            chatActionsFresh.classList.add("is-hidden");
+            chatActionsResume.classList.remove("is-hidden");
+          } else {
+            chatActionsResume.classList.add("is-hidden");
+            chatActionsFresh.classList.remove("is-hidden");
+          }
+        } catch {
+          chatActionsResume.classList.add("is-hidden");
+          chatActionsFresh.classList.remove("is-hidden");
+        }
       }
 
       async function loadPersonas() {
@@ -445,12 +670,46 @@
 
           const savedPersonaId = localStorage.getItem(`activePersonaId_${savedUser.id}`);
           const found = personas.find((item) => Number(item.id) === Number(savedPersonaId));
-          activePersona = found || null;
+          if (found) {
+            activePersona = found;
+          } else if (
+            savedPersonaId != null &&
+            String(savedPersonaId).trim() !== "" &&
+            Number.isFinite(Number(savedPersonaId)) &&
+            Number(savedPersonaId) > 0
+          ) {
+            activePersona = {
+              id: Number(savedPersonaId),
+              name: "Персона",
+              description: "",
+              persona_prompt: "",
+              avatar_url: "",
+            };
+          } else {
+            activePersona = null;
+          }
         } catch {
           personas = [];
-          activePersona = null;
+          const raw = localStorage.getItem(`activePersonaId_${savedUser.id}`);
+          if (
+            raw != null &&
+            String(raw).trim() !== "" &&
+            Number.isFinite(Number(raw)) &&
+            Number(raw) > 0
+          ) {
+            activePersona = {
+              id: Number(raw),
+              name: "Персона",
+              description: "",
+              persona_prompt: "",
+              avatar_url: "",
+            };
+          } else {
+            activePersona = null;
+          }
         }
 
+        updatePlayingAsUI();
       }
 
       async function loadBot() {
@@ -502,6 +761,8 @@ accordionSystemPrompt.innerHTML =
   bot.system_prompt || "Системный промпт не указан";
 
           showOwnerButtons(bot);
+          updateChatModalTitle();
+          updatePlayingAsUI();
         } catch (error) {
           notifyUser("Ошибка загрузки бота", "error");
           botName.textContent = "Ошибка загрузки";
@@ -519,7 +780,42 @@ accordionSystemPrompt.innerHTML =
           notifyUser("ID бота не найден", "error");
           return;
         }
+        if (activePersona) {
+          goToChatWithPersona(activePersona, { forceNew: false });
+          return;
+        }
+        if (explicitChatWithoutPersona) {
+          goToChatWithPersona(null, { forceNew: false });
+          return;
+        }
         openChatPersonaModal();
+      });
+
+      if (personaPlayingCard) {
+        personaPlayingCard.addEventListener("click", () => {
+          if (!botId) {
+            notifyUser("ID бота не найден", "error");
+            return;
+          }
+          openChatPersonaModal();
+        });
+      }
+
+      if (personaModalSearch) {
+        personaModalSearch.addEventListener("input", () => {
+          personaModalFilter = personaModalSearch.value.trim().toLowerCase();
+          renderChatPersonaModalList();
+        });
+      }
+
+      continueChatBtn.addEventListener("click", () => {
+        if (!botId) return;
+        goToChatWithPersona(activePersona, { forceNew: false });
+      });
+
+      newChatHeroBtn.addEventListener("click", () => {
+        if (!botId) return;
+        goToChatWithPersona(activePersona, { forceNew: true });
       });
 
       editBotBtn.addEventListener("click", () => {
@@ -545,15 +841,21 @@ accordionSystemPrompt.innerHTML =
       closeChatPersonaModalBtn.addEventListener("click", closeChatPersonaModal);
 
       chatWithoutPersonaBtn.addEventListener("click", () => {
+        explicitChatWithoutPersona = true;
         setActivePersona(null);
+        selectedPersonaInModal = null;
+        updatePlayingAsUI();
         closeChatPersonaModal();
-        goToChatWithPersona(null);
+        void refreshBotChatActions();
       });
 
       confirmChatPersonaBtn.addEventListener("click", () => {
-        setActivePersona(selectedPersonaInModal || activePersona || null);
+        const chosen = selectedPersonaInModal || activePersona || null;
+        explicitChatWithoutPersona = !chosen;
+        setActivePersona(chosen);
+        updatePlayingAsUI();
         closeChatPersonaModal();
-        goToChatWithPersona(selectedPersonaInModal || activePersona || null);
+        void refreshBotChatActions();
       });
 
 
@@ -589,6 +891,7 @@ accordionSystemPrompt.innerHTML =
       (async () => {
         await loadPersonas();
         await loadBot();
+        await refreshBotChatActions();
         updateFavoriteButton();
       })();
     </script>

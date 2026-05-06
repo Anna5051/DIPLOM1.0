@@ -1,6 +1,7 @@
 const path = require("path");
 require("dotenv").config({ path: path.resolve(__dirname, "../.env") });
 
+const http = require("http");
 const express = require("express");
 const cors = require("cors");
 const bcrypt = require("bcryptjs");
@@ -112,6 +113,118 @@ async function getOwnedChat(chatId, userId) {
   const chat = rows[0];
   if (Number(chat.user_id) !== Number(userId)) return "forbidden";
   return chat;
+}
+
+function parsePersonaIdFromQuery(req) {
+  const personaIdRaw = req.query.persona_id ?? req.query.persona;
+  if (
+    personaIdRaw === undefined ||
+    personaIdRaw === null ||
+    String(personaIdRaw).trim() === "" ||
+    String(personaIdRaw).toLowerCase() === "null"
+  ) {
+    return null;
+  }
+  const n = Number(personaIdRaw);
+  return Number.isFinite(n) ? n : null;
+}
+
+function requireUserIdFromQuery(req, res) {
+  const userId = Number(req.query.user_id);
+  if (!Number.isFinite(userId) || userId < 1) {
+    res.status(400).json({
+      message: "Укажите корректный user_id в запросе.",
+    });
+    return null;
+  }
+  return userId;
+}
+
+function deleteChatsForUserBotPersona(userId, botId, personaId, callback) {
+  db.query(
+    `
+      SELECT id
+      FROM chats
+      WHERE user_id = ? AND bot_id = ? AND (persona_id <=> ?)
+    `,
+    [userId, botId, personaId],
+    (err, rows) => {
+      if (err) return callback(err);
+      if (!rows.length) return callback(null);
+      const ids = rows.map((r) => r.id);
+      const placeholders = ids.map(() => "?").join(",");
+      db.query(
+        `DELETE FROM messages WHERE chat_id IN (${placeholders})`,
+        ids,
+        (msgErr) => {
+          if (msgErr) return callback(msgErr);
+          db.query(
+            `DELETE FROM chats WHERE id IN (${placeholders})`,
+            ids,
+            callback,
+          );
+        },
+      );
+    },
+  );
+}
+
+/** Старые строки чатов до появления persona_id (всегда NULL для пары user+bot). */
+function deleteLegacyNullPersonaChatsForUserBot(userId, botId, callback) {
+  db.query(
+    `
+      SELECT id
+      FROM chats
+      WHERE user_id = ? AND bot_id = ? AND persona_id IS NULL
+    `,
+    [userId, botId],
+    (err, rows) => {
+      if (err) return callback(err);
+      if (!rows.length) return callback(null);
+      const ids = rows.map((r) => r.id);
+      const placeholders = ids.map(() => "?").join(",");
+      db.query(
+        `DELETE FROM messages WHERE chat_id IN (${placeholders})`,
+        ids,
+        (msgErr) => {
+          if (msgErr) return callback(msgErr);
+          db.query(
+            `DELETE FROM chats WHERE id IN (${placeholders})`,
+            ids,
+            callback,
+          );
+        },
+      );
+    },
+  );
+}
+
+function attachLegacyNullPersonaToChat(chatId, personaId, callback) {
+  if (personaId == null) {
+    return callback(null);
+  }
+  db.query(
+    `UPDATE chats SET persona_id = ?, updated_at = NOW() WHERE id = ? AND persona_id IS NULL`,
+    [personaId, chatId],
+    (err) => callback(err || null),
+  );
+}
+
+/** Есть чат с уже назначенной персоной — тогда legacy NULL нельзя отдавать другой персоне. */
+function hasConcretePersonaChatForUserBot(userId, botId, callback) {
+  db.query(
+    `
+      SELECT id
+      FROM chats
+      WHERE user_id = ? AND bot_id = ? AND persona_id IS NOT NULL
+      LIMIT 1
+    `,
+    [userId, botId],
+    (err, rows) => {
+      if (err) return callback(err);
+      callback(null, rows.length > 0);
+    },
+  );
 }
 
 function hasEmailConfirmedColumn(callback) {
@@ -690,9 +803,102 @@ app.delete("/bot/:id", (req, res) => {
 });
 
 /*Создать чат id бота*/
+app.get("/chat-thread/:botId", (req, res) => {
+  const { botId } = req.params;
+  const userId = requireUserIdFromQuery(req, res);
+  if (userId == null) return;
+  const personaId = parsePersonaIdFromQuery(req);
+
+  const statsSql = `
+    SELECT
+      c.id AS chat_id,
+      (SELECT COUNT(*) FROM messages m WHERE m.chat_id = c.id) AS message_count,
+      (SELECT COUNT(*) FROM messages m WHERE m.chat_id = c.id AND m.sender_type = 'user') AS user_message_count
+    FROM chats c
+    WHERE c.user_id = ? AND c.bot_id = ? AND (c.persona_id <=> ?)
+    ORDER BY c.updated_at DESC, c.id DESC
+    LIMIT 1
+  `;
+
+  const legacyStatsSql = `
+    SELECT
+      c.id AS chat_id,
+      (SELECT COUNT(*) FROM messages m WHERE m.chat_id = c.id) AS message_count,
+      (SELECT COUNT(*) FROM messages m WHERE m.chat_id = c.id AND m.sender_type = 'user') AS user_message_count
+    FROM chats c
+    WHERE c.user_id = ? AND c.bot_id = ? AND c.persona_id IS NULL
+    ORDER BY c.updated_at DESC, c.id DESC
+    LIMIT 1
+  `;
+
+  const respondWithRow = (row) => {
+    const messageCount = Number(row.message_count) || 0;
+    const userMsgCount = Number(row.user_message_count) || 0;
+    return res.json({
+      exists: true,
+      chat_id: Number(row.chat_id),
+      message_count: messageCount,
+      has_user_messages: userMsgCount > 0,
+    });
+  };
+
+  db.query(statsSql, [userId, botId, personaId], (err, rows) => {
+    if (err) {
+      return res.status(500).json({ message: "Ошибка проверки чата" });
+    }
+    if (rows.length) {
+      return respondWithRow(rows[0]);
+    }
+    if (personaId == null) {
+      return res.json({
+        exists: false,
+        chat_id: null,
+        message_count: 0,
+        has_user_messages: false,
+      });
+    }
+    hasConcretePersonaChatForUserBot(userId, botId, (hcErr, hasConcrete) => {
+      if (hcErr) {
+        return res.status(500).json({ message: "Ошибка проверки чата" });
+      }
+      if (hasConcrete) {
+        return res.json({
+          exists: false,
+          chat_id: null,
+          message_count: 0,
+          has_user_messages: false,
+        });
+      }
+      db.query(legacyStatsSql, [userId, botId], (legErr, legRows) => {
+        if (legErr) {
+          return res.status(500).json({ message: "Ошибка проверки чата" });
+        }
+        if (!legRows.length) {
+          return res.json({
+            exists: false,
+            chat_id: null,
+            message_count: 0,
+            has_user_messages: false,
+          });
+        }
+        const row = legRows[0];
+        attachLegacyNullPersonaToChat(row.chat_id, personaId, (upErr) => {
+          if (upErr) {
+            return res.status(500).json({ message: "Ошибка привязки чата к персоне" });
+          }
+          return respondWithRow(row);
+        });
+      });
+    });
+  });
+});
+
 app.get("/chat-by-bot/:botId", (req, res) => {
   const { botId } = req.params;
-  const userId = Number(req.query.user_id) || 1;
+  const userId = requireUserIdFromQuery(req, res);
+  if (userId == null) return;
+  const personaId = parsePersonaIdFromQuery(req);
+  const createNewChat = req.query.new === "1";
 
   const getBotSql = `
     SELECT
@@ -722,7 +928,7 @@ app.get("/chat-by-bot/:botId", (req, res) => {
     }
 
     const bot = botRows[0];
-const createNewChat = req.query.new === "1";
+
     const findChatSql = `
       SELECT
         id,
@@ -735,49 +941,40 @@ const createNewChat = req.query.new === "1";
         created_at,
         updated_at
       FROM chats
-      WHERE user_id = ? AND bot_id = ?
+      WHERE user_id = ? AND bot_id = ? AND (persona_id <=> ?)
+      ORDER BY updated_at DESC, id DESC
       LIMIT 1
     `;
 
-    db.query(findChatSql, [userId, botId], (chatErr, chatRows) => {
-      if (chatErr) {
-        return res.status(500).json({
-          message: "Ошибка поиска чата",
-        });
-      }
+    const sendFullChat = (chat) => {
+      const messagesSql = `
+        SELECT
+          id,
+          chat_id,
+          sender_type,
+          content,
+          created_at
+        FROM messages
+        WHERE chat_id = ?
+        ORDER BY created_at ASC, id ASC
+      `;
 
-      const sendFullChat = (chat) => {
-        const messagesSql = `
-          SELECT
-            id,
-            chat_id,
-            sender_type,
-            content,
-            created_at
-          FROM messages
-          WHERE chat_id = ?
-          ORDER BY created_at ASC, id ASC
-        `;
-
-        db.query(messagesSql, [chat.id], (msgErr, msgRows) => {
-          if (msgErr) {
-            return res.status(500).json({
-              message: "Ошибка загрузки сообщений",
-            });
-          }
-
-          res.json({
-            chat,
-            bot,
-            messages: msgRows,
+      db.query(messagesSql, [chat.id], (msgErr, msgRows) => {
+        if (msgErr) {
+          return res.status(500).json({
+            message: "Ошибка загрузки сообщений",
           });
+        }
+
+        res.json({
+          chat,
+          bot,
+          messages: msgRows,
         });
-      };
+      });
+    };
 
-   if (!createNewChat && chatRows.length > 0) {
-  return sendFullChat(chatRows[0]);
-}
-
+    const insertFreshChat = () => {
       const insertChatSql = `
         INSERT INTO chats
         (
@@ -790,12 +987,12 @@ const createNewChat = req.query.new === "1";
           created_at,
           updated_at
         )
-        VALUES (?, ?, NULL, ?, '', 'private', NOW(), NOW())
+        VALUES (?, ?, ?, ?, '', 'private', NOW(), NOW())
       `;
 
       db.query(
         insertChatSql,
-        [userId, botId, `Чат с ${bot.name}`],
+        [userId, botId, personaId, `Чат с ${bot.name}`],
         (insertErr, insertResult) => {
           if (insertErr) {
             return res.status(500).json({
@@ -807,7 +1004,7 @@ const createNewChat = req.query.new === "1";
             id: insertResult.insertId,
             user_id: userId,
             bot_id: Number(botId),
-            persona_id: null,
+            persona_id: personaId,
             title: `Чат с ${bot.name}`,
             summary: "",
             visibility: "private",
@@ -843,6 +1040,95 @@ const createNewChat = req.query.new === "1";
           }
         },
       );
+    };
+
+    if (createNewChat) {
+      deleteChatsForUserBotPersona(userId, botId, personaId, (delErr) => {
+        if (delErr) {
+          return res.status(500).json({
+            message: "Ошибка сброса чата",
+          });
+        }
+        if (personaId != null) {
+          deleteLegacyNullPersonaChatsForUserBot(userId, botId, (legDelErr) => {
+            if (legDelErr) {
+              return res.status(500).json({
+                message: "Ошибка сброса чата",
+              });
+            }
+            insertFreshChat();
+          });
+          return;
+        }
+        insertFreshChat();
+      });
+      return;
+    }
+
+    db.query(findChatSql, [userId, botId, personaId], (chatErr, chatRows) => {
+      if (chatErr) {
+        return res.status(500).json({
+          message: "Ошибка поиска чата",
+        });
+      }
+
+      if (chatRows.length > 0) {
+        return sendFullChat(chatRows[0]);
+      }
+
+      if (personaId == null) {
+        return insertFreshChat();
+      }
+
+      const legacyFindSql = `
+        SELECT
+          id,
+          user_id,
+          bot_id,
+          persona_id,
+          title,
+          summary,
+          visibility,
+          created_at,
+          updated_at
+        FROM chats
+        WHERE user_id = ? AND bot_id = ? AND persona_id IS NULL
+        ORDER BY updated_at DESC, id DESC
+        LIMIT 1
+      `;
+
+      hasConcretePersonaChatForUserBot(userId, botId, (hcErr, hasConcrete) => {
+        if (hcErr) {
+          return res.status(500).json({
+            message: "Ошибка поиска чата",
+          });
+        }
+        if (hasConcrete) {
+          return insertFreshChat();
+        }
+        db.query(legacyFindSql, [userId, botId], (legErr, legChatRows) => {
+          if (legErr) {
+            return res.status(500).json({
+              message: "Ошибка поиска чата",
+            });
+          }
+          if (!legChatRows.length) {
+            return insertFreshChat();
+          }
+          const legacyChat = legChatRows[0];
+          attachLegacyNullPersonaToChat(legacyChat.id, personaId, (upErr) => {
+            if (upErr) {
+              return res.status(500).json({
+                message: "Ошибка привязки чата к персоне",
+              });
+            }
+            sendFullChat({
+              ...legacyChat,
+              persona_id: personaId,
+            });
+          });
+        });
+      });
     });
   });
 });
@@ -1206,6 +1492,7 @@ app.post("/chat/:chatId/message/:messageId/regenerate", async (req, res) => {
       String(persona_prompt || ""),
       String(persona_name || ""),
       upperMessageId,
+      { regenerate: true },
     );
 
     await dbQuery(
@@ -1293,13 +1580,15 @@ app.get("/my-chats/:userId", (req, res) => {
       c.id,
       c.user_id,
       c.bot_id,
+      c.persona_id,
       c.title,
       c.summary,
       c.visibility,
       c.created_at,
       c.updated_at,
       b.name AS bot_name,
-      b.avatar_url
+      b.avatar_url,
+      (SELECT COUNT(*) FROM messages m WHERE m.chat_id = c.id) AS messages_count
     FROM chats c
     LEFT JOIN bots b ON c.bot_id = b.id
     WHERE c.user_id = ?
@@ -2016,6 +2305,60 @@ app.delete("/chat/:chatId", (req, res) => {
 
 
 
-const PORT = process.env.PORT || 3000;
+const envPortRaw = process.env.PORT;
+const portFromEnvExplicit =
+  envPortRaw !== undefined && String(envPortRaw).trim() !== "";
+const preferredPort = Number(envPortRaw) || 3000;
+const MAX_PORT_FALLBACK_SPAN = 50;
 
-app.listen(PORT);
+function startHttpServer(port) {
+  const server = http.createServer(app);
+
+  server.once("listening", () => {
+    const localUrl = `http://localhost:${port}`;
+    console.log(`Сервер запущен — ${localUrl}`);
+    if (!portFromEnvExplicit && port !== preferredPort) {
+      console.warn(
+        `(порт ${preferredPort} был занят другим процессом — часто это вторая копия сервера; открывай ${localUrl})`,
+      );
+    }
+    db.query("SELECT 1 AS ok", (dbErr) => {
+      if (dbErr) {
+        console.error("БД: ошибка —", dbErr.message);
+      } else {
+        console.log("БД: подключение установлено");
+      }
+    });
+  });
+
+  server.on("error", (err) => {
+    if (err.code === "EADDRINUSE") {
+      if (portFromEnvExplicit) {
+        console.error(
+          `Порт ${port} уже занят. Закройте процесс на этом порту или укажите другой PORT в .env`,
+        );
+        process.exit(1);
+        return;
+      }
+      const nextPort = port + 1;
+      if (nextPort > preferredPort + MAX_PORT_FALLBACK_SPAN) {
+        console.error(
+          `Не удалось найти свободный порт (пробовали ${preferredPort}…${nextPort - 1}).`,
+        );
+        process.exit(1);
+        return;
+      }
+      console.warn(`Порт ${port} занят, пробую ${nextPort}…`);
+      server.close(() => {
+        startHttpServer(nextPort);
+      });
+      return;
+    }
+    console.error(err);
+    process.exit(1);
+  });
+
+  server.listen(port);
+}
+
+startHttpServer(preferredPort);
