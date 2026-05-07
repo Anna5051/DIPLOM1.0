@@ -161,25 +161,6 @@ body {
   box-shadow: 0 0 18px rgba(161, 115, 255, 0.36);
 }
 
-.sidebar-links {
-  margin-top: 16px;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  padding-top: 14px;
-  border-top: 1px solid rgba(180, 190, 255, 0.08);
-}
-
-.sidebar-link {
-  text-decoration: none;
-  color: #d8d5f0;
-  font-size: 14px;
-  padding: 10px 12px;
-  border-radius: 10px;
-  background: rgba(72, 65, 160, 0.12);
-  border: 1px solid rgba(169, 151, 255, 0.12);
-}
-
 .admin-content {
   padding: 20px;
 }
@@ -620,7 +601,73 @@ body {
 }
 
 @media (max-width: 700px) {
+  .admin-shell {
+    padding: 12px 8px 84px;
+  }
+
+  .admin-content {
+    padding: 12px;
+  }
+
+  .section-head h2 {
+    font-size: 24px;
+  }
+
+  .admin-card {
+    padding: 12px;
+  }
+
   .bots-grid {
-    grid-template-columns: 1fr;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+  }
+
+  .bot-body-admin {
+    padding: 10px;
+    gap: 8px;
+  }
+
+  .bot-top-admin h3 {
+    font-size: 15px;
+  }
+
+  .bot-top-admin p {
+    font-size: 11px;
+  }
+
+  .card-link-btn,
+  .action-btn {
+    min-height: 36px;
+    padding: 0 10px;
+    font-size: 12px;
+    border-radius: 10px;
+  }
+
+  .admin-actions > .action-btn,
+  .bot-actions-admin > .card-link-btn,
+  .bot-actions-admin > .action-btn {
+    flex: 1 1 calc(50% - 4px);
+    min-width: 0;
+    justify-content: center;
+    text-align: center;
+    white-space: nowrap;
+  }
+}
+
+@media (max-width: 390px) {
+  .bots-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+  }
+
+  .bot-body-admin {
+    padding: 8px;
+  }
+
+  .card-link-btn,
+  .action-btn {
+    min-height: 34px;
+    font-size: 11px;
+    padding: 0 8px;
   }
 }

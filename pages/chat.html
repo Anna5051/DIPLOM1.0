@@ -488,10 +488,19 @@
       clearProxyForm();
       proxyModal.classList.remove("hidden");
       dropdownMenu.classList.remove("open");
+      syncChatOverlayState();
     }
 
     function closeProxyModal() {
       proxyModal.classList.add("hidden");
+      syncChatOverlayState();
+    }
+
+    function syncChatOverlayState() {
+      const hasOpenOverlay =
+        !proxyModal.classList.contains("hidden") ||
+        !personaModal.classList.contains("hidden");
+      document.body.classList.toggle("chat-overlay-open", hasOpenOverlay);
     }
 
     let toastTimer = null;
@@ -725,10 +734,12 @@
 
       personaModal.classList.remove("hidden");
       dropdownMenu.classList.remove("open");
+      syncChatOverlayState();
     }
 
     function closePersonaModal() {
       personaModal.classList.add("hidden");
+      syncChatOverlayState();
     }
 
     function buildTypingDotsHtml() {
@@ -1376,7 +1387,7 @@
       activeProxyId = null;
       writeProxyConfigs();
       renderProxyConfigs();
-      updateProxyButtonLabel();
+    updateProxyButtonLabel();
       showToast("Используется встроенный qwen");
     });
     cancelProxyEditBtn.addEventListener("click", clearProxyForm);

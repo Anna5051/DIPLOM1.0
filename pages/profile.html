@@ -210,11 +210,17 @@
       const profileParams = new URLSearchParams(window.location.search);
       const externalAuthorId = profileParams.get("authorId");
       const externalUsername = (profileParams.get("username") || "").trim();
-      const isExternalProfile =
-        (externalAuthorId && String(externalAuthorId) !== String(savedUser.id)) ||
-        (!!externalUsername &&
-          externalUsername.toLowerCase() !==
-            String(savedUser.username || "").toLowerCase());
+      const hasExternalAuthorId = !!externalAuthorId;
+      const isOwnProfileById =
+        hasExternalAuthorId &&
+        String(externalAuthorId) === String(savedUser.id);
+      const isExternalProfile = isOwnProfileById
+        ? false
+        : hasExternalAuthorId
+          ? String(externalAuthorId) !== String(savedUser.id)
+          : !!externalUsername &&
+            externalUsername.toLowerCase() !==
+              String(savedUser.username || "").toLowerCase();
 
       const usernameElement = document.getElementById("username");
       const profileEditor = document.getElementById("profileEditor");
@@ -237,7 +243,8 @@
       const searchBtn = document.getElementById("searchBtn");
 
       if (adminSidebarBtn && Number(savedUser.role_id) !== 2) {
-        adminSidebarBtn.style.display = "none";
+        adminSidebarBtn.classList.add("is-hidden");
+        adminSidebarBtn.setAttribute("aria-hidden", "true");
       }
 
       const characterSearch = document.getElementById("characterSearch");
@@ -315,6 +322,23 @@
         followAuthorBtn.classList.toggle("is-following", active);
       }
 
+      function isOwnProfile(profile) {
+        if (!profile) return true;
+        if (profile.id != null && String(profile.id) !== "") {
+          return String(profile.id) === String(savedUser.id);
+        }
+        return (
+          String(profile.username || "").toLowerCase() ===
+          String(savedUser.username || "").toLowerCase()
+        );
+      }
+
+      function updateFollowButtonVisibility(profile) {
+        const shouldShow = isExternalProfile && !isOwnProfile(profile);
+        followAuthorBtn.hidden = !shouldShow;
+        followAuthorBtn.style.display = shouldShow ? "inline-flex" : "none";
+      }
+
       function syncEditToggleButtonState() {
         const isHidden = profileEditorPanel.classList.contains("hidden");
         toggleEditBtn.innerHTML = isHidden
@@ -385,7 +409,6 @@
         profileEditorPanel.classList.add("hidden");
         profileAvatarInput.disabled = true;
         document.querySelector(".avatar-change-btn").style.display = "none";
-        followAuthorBtn.style.display = "inline-flex";
       }
 
       if (!isExternalProfile) {
@@ -582,6 +605,10 @@
       });
 
       followAuthorBtn.addEventListener("click", () => {
+        if (String(viewedProfile?.id) === String(savedUser.id)) {
+          notifyUser("Нельзя подписаться на себя", "warning");
+          return;
+        }
         const followers = getFollowers(viewedProfile);
         const already = followers.includes(savedUser.id);
         const next = already
@@ -705,6 +732,7 @@
             created_at: savedUser.created_at || null,
             avatar_url: userAvatar,
           };
+          updateFollowButtonVisibility(viewedProfile);
           updateFollowersCount(viewedProfile);
           return;
         }
@@ -757,6 +785,7 @@
             setProfileAvatarImage("/img/icon.svg");
           }
 
+          updateFollowButtonVisibility(viewedProfile);
           updateFollowersCount(viewedProfile);
           updateFollowButton(viewedProfile);
         } catch (error) {
@@ -770,6 +799,7 @@
           applyProfileBaseData(viewedProfile);
           profilePreview.innerHTML = `Профиль автора @${viewedProfile.username}`;
           profileEditor.innerHTML = profilePreview.innerHTML;
+          updateFollowButtonVisibility(viewedProfile);
           updateFollowersCount(viewedProfile);
           updateFollowButton(viewedProfile);
         }

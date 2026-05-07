@@ -73,12 +73,13 @@
   (function setupMobileDock() {
     const path = window.location.pathname.toLowerCase();
     const isInternalPage = path.startsWith("/pages/");
+    const isAdminPage = path.endsWith("/admin.html");
     const blocked =
       path.endsWith("/index.html") ||
       path.endsWith("/autorization.html") ||
       path.endsWith("/register.html") ||
-      path.includes("/pages/docs/") ||
-      path.endsWith("/admin.html");
+      path.endsWith("/chat.html") ||
+      path.includes("/pages/docs/");
 
     if (!isInternalPage || blocked) return;
     if (document.getElementById("mobileDockNav")) return;
@@ -91,34 +92,94 @@
     const current = path;
     const isActive = (target) => current.endsWith(target);
 
-    dock.innerHTML = `
-      <a href="/pages/main.html" class="mobile-dock-item ${isActive("/main.html") ? "active" : ""}" aria-label="Главная">
-        <svg viewBox="0 0 24 24" aria-hidden="true">
-          <path d="M12 3 3 10v10h6v-6h6v6h6V10l-9-7z" fill="currentColor" />
-        </svg>
-      </a>
-      <a href="/pages/search.html" class="mobile-dock-item ${isActive("/search.html") ? "active" : ""}" aria-label="Поиск">
-        <svg viewBox="0 0 24 24" aria-hidden="true">
-          <path d="M15.5 14h-.8l-.3-.3a6 6 0 1 0-.7.7l.3.3v.8L19 20.2 20.2 19 15.5 14zm-5.5 0a4.5 4.5 0 1 1 0-9 4.5 4.5 0 0 1 0 9z" fill="currentColor" />
-        </svg>
-      </a>
-      <a href="/pages/main.html" class="mobile-dock-center ${isActive("/main.html") ? "active" : ""}" aria-label="Главная">
-        <img src="/img/icon.svg" alt="Главная" />
-      </a>
-      <a href="/pages/history.html" class="mobile-dock-item ${isActive("/history.html") ? "active" : ""}" aria-label="История">
-        <svg viewBox="0 0 24 24" aria-hidden="true">
-          <path d="M4 4h12v9H7l-3 3V4zm14 0h2v12h-6v-2h4V4z" fill="currentColor" />
-        </svg>
-      </a>
-      <a href="/pages/profile.html" class="mobile-dock-item ${isActive("/profile.html") ? "active" : ""}" aria-label="Профиль">
-        <svg viewBox="0 0 24 24" aria-hidden="true">
-          <path d="M12 12a5 5 0 1 0-5-5 5 5 0 0 0 5 5zm0 2c-3.3 0-8 1.7-8 5v1h16v-1c0-3.3-4.7-5-8-5z" fill="currentColor" />
-        </svg>
-      </a>
-    `;
+    if (isAdminPage) {
+      dock.innerHTML = `
+        <a href="/pages/main.html" class="mobile-dock-item" aria-label="Главная">
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M12 3 3 10v10h6v-6h6v6h6V10l-9-7z" fill="currentColor" />
+          </svg>
+        </a>
+        <button type="button" class="mobile-dock-item mobile-dock-admin-tab active" data-admin-tab="usersTab" aria-label="Пользователи">
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M16 11a4 4 0 1 0-4-4 4 4 0 0 0 4 4zm-8 0a3 3 0 1 0-3-3 3 3 0 0 0 3 3zm0 2c-2.7 0-6 1.4-6 4v1h8v-1c0-1.1.4-2.1 1.2-3-1-.6-2.2-1-3.2-1zm8 0c-2.9 0-7 1.5-7 4v1h14v-1c0-2.5-4.1-4-7-4z" fill="currentColor"/>
+          </svg>
+        </button>
+        <a href="/pages/main.html" class="mobile-dock-center" aria-label="Главная">
+          <img src="/img/icon.svg" alt="Главная" />
+        </a>
+        <a href="/pages/history.html" class="mobile-dock-item" aria-label="История">
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M4 4h12v9H7l-3 3V4zm14 0h2v12h-6v-2h4V4z" fill="currentColor" />
+          </svg>
+        </a>
+        <a href="/pages/profile.html" class="mobile-dock-item" aria-label="Профиль">
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M12 12a5 5 0 1 0-5-5 5 5 0 0 0 5 5zm0 2c-3.3 0-8 1.7-8 5v1h16v-1c0-3.3-4.7-5-8-5z" fill="currentColor" />
+          </svg>
+        </a>
+      `;
+    } else {
+      dock.innerHTML = `
+        <a href="/pages/main.html" class="mobile-dock-item ${isActive("/main.html") ? "active" : ""}" aria-label="Главная">
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M12 3 3 10v10h6v-6h6v6h6V10l-9-7z" fill="currentColor" />
+          </svg>
+        </a>
+        <a href="/pages/search.html" class="mobile-dock-item ${isActive("/search.html") ? "active" : ""}" aria-label="Поиск">
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M15.5 14h-.8l-.3-.3a6 6 0 1 0-.7.7l.3.3v.8L19 20.2 20.2 19 15.5 14zm-5.5 0a4.5 4.5 0 1 1 0-9 4.5 4.5 0 0 1 0 9z" fill="currentColor" />
+          </svg>
+        </a>
+        <a href="/pages/main.html" class="mobile-dock-center ${isActive("/main.html") ? "active" : ""}" aria-label="Главная">
+          <img src="/img/icon.svg" alt="Главная" />
+        </a>
+        <a href="/pages/history.html" class="mobile-dock-item ${isActive("/history.html") ? "active" : ""}" aria-label="История">
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M4 4h12v9H7l-3 3V4zm14 0h2v12h-6v-2h4V4z" fill="currentColor" />
+          </svg>
+        </a>
+        <a href="/pages/profile.html" class="mobile-dock-item ${isActive("/profile.html") ? "active" : ""}" aria-label="Профиль">
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M12 12a5 5 0 1 0-5-5 5 5 0 0 0 5 5zm0 2c-3.3 0-8 1.7-8 5v1h16v-1c0-3.3-4.7-5-8-5z" fill="currentColor" />
+          </svg>
+        </a>
+      `;
+    }
 
     document.body.classList.add("has-mobile-dock");
     document.body.appendChild(dock);
+
+    if (isAdminPage) {
+      const adminTabs = Array.from(
+        dock.querySelectorAll(".mobile-dock-admin-tab"),
+      );
+      const syncAdminDockState = () => {
+        const activeTab = document.querySelector(".admin-tab.active");
+        const activeId = activeTab ? activeTab.id : "usersTab";
+        adminTabs.forEach((btn) => {
+          btn.classList.toggle("active", btn.dataset.adminTab === activeId);
+        });
+      };
+
+      adminTabs.forEach((btn) => {
+        btn.addEventListener("click", () => {
+          const targetTab = btn.dataset.adminTab;
+          const targetSidebarBtn = document.querySelector(
+            `.sidebar-btn[data-tab="${targetTab}"]`,
+          );
+          if (targetSidebarBtn) {
+            targetSidebarBtn.click();
+          } else {
+            document.querySelectorAll(".admin-tab").forEach((tab) => {
+              tab.classList.toggle("active", tab.id === targetTab);
+            });
+          }
+          syncAdminDockState();
+        });
+      });
+
+      syncAdminDockState();
+    }
   })();
 
   // Мобильный поиск в стиле Janitor на странице search.

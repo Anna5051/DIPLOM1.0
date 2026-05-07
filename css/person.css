@@ -331,7 +331,7 @@ body.modal-open {
 .modal-overlay {
   position: fixed;
   inset: 0;
-  z-index: 100;
+  z-index: 4000;
   display: none;
   align-items: center;
   justify-content: center;
@@ -342,6 +342,10 @@ body.modal-open {
 
 .modal-overlay.active {
   display: flex;
+}
+
+body.modal-open #mobileDockNav {
+  display: none !important;
 }
 
 .modal-card {
@@ -552,12 +556,14 @@ body.modal-open {
   }
 
   .persona-grid {
-    grid-template-columns: 1fr;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
   }
 
   .persona-card,
   .create-card {
     width: 100%;
+    min-height: 320px;
   }
 
   .modal-overlay {

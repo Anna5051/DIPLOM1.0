@@ -133,7 +133,8 @@
   if (savedAvatar) topAvatar.src = savedAvatar;
 
   if (adminPanelBtn && Number(savedUser.role_id) !== 2) {
-    adminPanelBtn.style.display = "none";
+    adminPanelBtn.classList.add("is-hidden");
+    adminPanelBtn.setAttribute("aria-hidden", "true");
   }
 
   let currentTab = "my";
