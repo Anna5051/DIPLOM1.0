@@ -176,6 +176,24 @@ function ensureUserBlockedColumn() {
   });
 }
 
+function ensureBotBlockedColumn() {
+  const sql = `
+    ALTER TABLE bots
+    ADD COLUMN is_blocked TINYINT(1) NOT NULL DEFAULT 0 AFTER visibility
+  `;
+
+  db.query(sql, (err) => {
+    if (!err) {
+      console.log("БД: добавлена колонка bots.is_blocked");
+      return;
+    }
+    if (err.code === "ER_DUP_FIELDNAME") {
+      return;
+    }
+    console.warn("БД: не удалось проверить/добавить bots.is_blocked —", err.message);
+  });
+}
+
 async function getOwnedChat(chatId, userId) {
   const rows = await dbQuery(
     `
@@ -1904,6 +1922,7 @@ app.get("/admin/bots", requireAdmin, (req, res) => {
       b.creator_id,
       b.avatar_url,
       b.visibility,
+      b.is_blocked,
       b.tags,
       b.created_at,
       u.username AS author_name
@@ -1924,30 +1943,37 @@ app.get("/admin/bots", requireAdmin, (req, res) => {
 });
 
 app.put("/admin/bots/:id", requireAdmin, (req, res) => {
-  const { id } = req.params;
-  const { name, visibility, tags } = req.body;
-
-  const sql = `
-    UPDATE bots
-    SET
-      name = ?,
-      visibility = ?,
-      tags = ?,
-      updated_at = NOW()
-    WHERE id = ?
-  `;
-
-  db.query(sql, [name || "", visibility || "public", tags || "", id], (err) => {
-    if (err) {
-      return res.status(500).json({
-        message: "Ошибка обновления бота",
-      });
-    }
-
-    res.json({
-      message: "Бот обновлён ✅",
-    });
+  return res.status(403).json({
+    message:
+      "Редактирование названия, тегов и приватности бота из админ-панели отключено",
   });
+});
+
+app.put("/admin/bots/:id/block", requireAdmin, (req, res) => {
+  const { id } = req.params;
+  const shouldBlock = Number(req.body?.is_blocked) === 1 ? 1 : 0;
+
+  db.query(
+    `
+      UPDATE bots
+      SET
+        is_blocked = ?,
+        updated_at = NOW()
+      WHERE id = ?
+    `,
+    [shouldBlock, id],
+    (err) => {
+      if (err) {
+        return res.status(500).json({
+          message: "Ошибка изменения блокировки бота",
+        });
+      }
+
+      res.json({
+        message: shouldBlock ? "Бот заблокирован ✅" : "Бот разблокирован ✅",
+      });
+    },
+  );
 });
 
 /*Удаление бота админом*/
@@ -2068,7 +2094,7 @@ app.get("/all-bots", (req, res) => {
       u.username AS author_name
     FROM bots b
     LEFT JOIN users u ON b.creator_id = u.id
-    WHERE b.visibility = 'public'
+    WHERE b.visibility = 'public' AND COALESCE(b.is_blocked, 0) = 0
     ORDER BY b.created_at DESC
   `;
 
@@ -2481,6 +2507,7 @@ function startHttpServer(port) {
         console.log("БД: подключение установлено");
         ensurePersonaRoleColumn();
         ensureUserBlockedColumn();
+        ensureBotBlockedColumn();
       }
     });
   });

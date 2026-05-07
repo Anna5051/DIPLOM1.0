@@ -13,8 +13,6 @@
     <header class="topbar">
       <div class="topbar-left">
         <a href="/pages/main.html" class="brand">Charitor.ai</a>
-        <a href="/pages/main.html" class="back-btn">← На главную</a>
-        <a href="/pages/profile.html" class="back-btn">Профиль</a>
       </div>
 
       <div class="topbar-center">
@@ -29,8 +27,11 @@
       </div>
 
       <div class="topbar-right">
-        <a href="/pages/main.html" class="mini-link">Главная</a>
-        <a href="/pages/create.html" class="mini-link">Создать</a>
+        <a href="/pages/history.html" class="top-icon" aria-label="Чаты">
+          <svg class="topbar-icon-svg" viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M4 4h12v9H7l-3 3V4zm14 0h2v12h-6v-2h4V4z" />
+          </svg>
+        </a>
         <a href="/pages/profile.html" class="profile-mini">
           <img id="topbarAvatar" src="/img/icon.svg" alt="avatar" />
         </a>
@@ -124,6 +125,78 @@
         const div = document.createElement("div");
         div.textContent = text ?? "";
         return div.innerHTML;
+      }
+
+      function translateTag(tag) {
+        const key = String(tag || "").trim().toLowerCase().replace(/\s+/g, "_");
+        const map = {
+          romance: "Романтика",
+          drama: "Драма",
+          rp: "Ролевые сценарии",
+          dark: "Темные сюжеты",
+          fantasy: "Фэнтези",
+          anime: "Аниме",
+          adventure: "Приключения",
+          story: "Истории",
+          villain: "Злодеи",
+          hero: "Герои",
+          mystery: "Мистика",
+          magic: "Магия",
+          slowburn: "Медленное развитие",
+          enemies: "От ненависти до любви",
+          oc: "Оригинальные персонажи",
+          scenario: "Сценарные",
+          male: "Мужской POV",
+          female: "Женский POV",
+          nonhuman: "Нелюди",
+          historical: "Исторические",
+          school: "Школьные",
+          office: "Офисные",
+          mafia: "Мафия",
+          detective: "Детектив",
+          vampire: "Вампиры",
+          robot: "Роботы",
+          scifi: "Научная фантастика",
+          "sci-fi": "Научная фантастика",
+          comedy: "Комедия",
+          angst: "Ангст",
+          royalty: "Королевские",
+          monster: "Монстры",
+          assistant: "Ассистенты",
+          beginning: "Для новичков",
+          music: "Музыкальные",
+          cyberpunk: "Киберпанк",
+          analytics: "Аналитика",
+          street: "Уличные сюжеты",
+          space: "Космос",
+          command: "Командование",
+          tactical: "Тактика",
+          engineering: "Инженерия",
+          logic: "Логика",
+          gothic: "Готика",
+          history: "Исторические",
+          archive: "Архивные",
+          scholar: "Ученые",
+          nature: "Природа",
+          soft: "Мягкий стиль",
+          city: "Городские",
+          slice_of_life: "Повседневность",
+          ru: "Русский",
+        };
+        return map[key] || tag;
+      }
+
+      function renderBotTags(tagsRaw) {
+        const tags = String(tagsRaw || "")
+          .split(",")
+          .map((tag) => tag.trim())
+          .filter(Boolean)
+          .slice(0, 6);
+
+        if (!tags.length) return `<span class="bot-tag-chip">Нет тегов</span>`;
+        return tags
+          .map((tag) => `<span class="bot-tag-chip">${escapeHtml(translateTag(tag))}</span>`)
+          .join("");
       }
 
       document.querySelectorAll(".sidebar-btn").forEach((btn) => {
@@ -327,56 +400,52 @@
               <span class="bot-badge-admin">${escapeHtml(bot.visibility || "public")}</span>
             </div>
 
-            <div class="bot-tags-admin">
-              ${escapeHtml(bot.tags || "Нет тегов")}
+            <div class="bot-status-row">
+              <span class="bot-status-badge ${Number(bot.is_blocked) === 1 ? "blocked" : "active"}">
+                ${Number(bot.is_blocked) === 1 ? "Заблокирован" : "Активен"}
+              </span>
             </div>
 
-            <div class="bot-edit-admin">
-              <label>
-                <span>Название</span>
-                <input type="text" class="edit-bot-name" value="${escapeHtml(bot.name || "")}">
-              </label>
-
-              <label>
-                <span>Visibility</span>
-                <select class="edit-bot-visibility">
-                  <option value="public" ${bot.visibility === "public" ? "selected" : ""}>public</option>
-                  <option value="private" ${bot.visibility === "private" ? "selected" : ""}>private</option>
-                </select>
-              </label>
-
-              <label class="full-width">
-                <span>Теги</span>
-                <input type="text" class="edit-bot-tags" value="${escapeHtml(bot.tags || "")}">
-              </label>
+            <div class="bot-tags-admin">
+              ${renderBotTags(bot.tags)}
             </div>
 
             <div class="bot-actions-admin">
               <a href="/pages/bot.html?id=${bot.id}" class="card-link-btn">Открыть</a>
               <a href="/pages/chat.html?id=${bot.id}" class="card-link-btn">Чат</a>
               <a href="/pages/create.html?id=${bot.id}" class="card-link-btn">Редактировать</a>
-              <button class="action-btn primary save-bot-btn">Сохранить</button>
+              <button class="action-btn ${Number(bot.is_blocked) === 1 ? "warning" : "secondary"} toggle-block-bot-btn">
+                ${Number(bot.is_blocked) === 1 ? "Разблокировать" : "Заблокировать"}
+              </button>
               <button class="action-btn danger delete-bot-btn">Удалить</button>
             </div>
           </div>
         `;
 
           card
-            .querySelector(".save-bot-btn")
+            .querySelector(".toggle-block-bot-btn")
             .addEventListener("click", async () => {
-              const name = card.querySelector(".edit-bot-name").value.trim();
-              const visibility = card.querySelector(
-                ".edit-bot-visibility",
-              ).value;
-              const tags = card.querySelector(".edit-bot-tags").value.trim();
+              const isBlocked = Number(bot.is_blocked) === 1;
+              const proceed = await siteConfirm(
+                isBlocked
+                  ? `Разблокировать бота ${bot.name}?`
+                  : `Заблокировать бота ${bot.name}?`,
+                {
+                  title: "Подтверждение",
+                  confirmText: isBlocked ? "Разблокировать" : "Заблокировать",
+                  cancelText: "Отмена",
+                  danger: !isBlocked,
+                },
+              );
+              if (!proceed) return;
 
               try {
                 const res = await fetch(
-                  `http://localhost:3000/admin/bots/${bot.id}`,
+                  `http://localhost:3000/admin/bots/${bot.id}/block`,
                   {
                     method: "PUT",
                     headers: authHeaders(),
-                    body: JSON.stringify({ name, visibility, tags }),
+                    body: JSON.stringify({ is_blocked: isBlocked ? 0 : 1 }),
                   },
                 );
 
@@ -384,7 +453,7 @@
                 notifyUser(data.message || "Готово", res.ok ? "success" : "error");
                 if (res.ok) loadBots();
               } catch (error) {
-                notifyUser("Ошибка сохранения бота", "error");
+                notifyUser("Ошибка изменения блокировки бота", "error");
               }
             });
 

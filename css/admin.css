@@ -400,7 +400,7 @@ body {
 
 .bots-grid {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 14px;
 }
 
@@ -417,7 +417,7 @@ body {
 
 .bot-image-admin {
   width: 100%;
-  aspect-ratio: 1 / 1;
+  aspect-ratio: 3 / 4;
   overflow: hidden;
   background: rgba(16, 12, 55, 0.72);
 }
@@ -479,10 +479,50 @@ body {
 }
 
 .bot-tags-admin {
-  color: #d7d7ef;
-  font-size: 12px;
-  line-height: 1.4;
-  min-height: 20px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  min-height: 24px;
+}
+
+.bot-tag-chip {
+  display: inline-flex;
+  align-items: center;
+  min-height: 22px;
+  padding: 0 8px;
+  border-radius: 8px;
+  border: 1px solid rgba(183, 166, 255, 0.34);
+  background: rgba(61, 46, 129, 0.48);
+  color: #f1ebff;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.bot-status-row {
+  margin-top: -2px;
+}
+
+.bot-status-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 22px;
+  padding: 0 8px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.bot-status-badge.active {
+  border: 1px solid rgba(126, 255, 217, 0.4);
+  background: rgba(39, 126, 104, 0.35);
+  color: #ccffee;
+}
+
+.bot-status-badge.blocked {
+  border: 1px solid rgba(255, 164, 164, 0.42);
+  background: rgba(142, 45, 45, 0.34);
+  color: #ffdede;
 }
 
 .bot-edit-admin {
@@ -541,7 +581,7 @@ body {
 
 @media (max-width: 1300px) {
   .bots-grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 }
 
@@ -574,6 +614,12 @@ body {
 }
 
 @media (max-width: 900px) {
+  .bots-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 700px) {
   .bots-grid {
     grid-template-columns: 1fr;
   }

@@ -237,12 +237,41 @@ body {
 }
 
 @media (max-width: 560px) {
-  .chat-card {
+  .history-page {
+    padding: 10px 8px 96px;
+  }
+
+  .chats-grid {
     grid-template-columns: 1fr;
+    gap: 10px;
+  }
+
+  .chat-card {
+    grid-template-columns: 96px 1fr;
+    gap: 10px;
+    min-height: 140px;
+    padding: 10px;
+    border-radius: 16px;
   }
 
   .chat-cover {
-    height: 260px;
+    height: 120px;
+    border-radius: 12px;
+  }
+
+  .chat-info h3 {
+    font-size: 17px;
+    margin-bottom: 6px;
+  }
+
+  .chat-info p {
+    -webkit-line-clamp: 3;
+    font-size: 13px;
+  }
+
+  .chat-meta {
+    font-size: 12px;
+    gap: 8px;
   }
 
   .history-controls {
@@ -253,5 +282,10 @@ body {
   .history-controls select,
   .history-controls button {
     width: 100%;
+  }
+
+  .continue-btn {
+    align-self: stretch;
+    min-width: 0;
   }
 }
