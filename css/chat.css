@@ -71,6 +71,17 @@ body {
   gap: 8px;
 }
 
+.proxy-settings-btn {
+  border: 1px solid rgba(180, 165, 255, 0.25);
+  background: rgba(45, 39, 92, 0.7);
+  color: #fff;
+  border-radius: 10px;
+  padding: 6px 12px;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
 .persona-pill {
   border: 1px solid rgba(180, 165, 255, 0.25);
   background: rgba(45, 39, 92, 0.7);
@@ -848,6 +859,110 @@ body {
   box-shadow: 0 24px 70px rgba(0,0,0,.5), 0 0 22px rgba(111,82,220,.2);
 
   overflow: hidden;
+}
+
+.proxy-modal-card {
+  width: min(760px, calc(100% - 24px));
+}
+
+.proxy-modal-body {
+  padding: 14px 20px 20px;
+  display: grid;
+  gap: 14px;
+}
+
+.proxy-toolbar {
+  display: flex;
+  justify-content: flex-start;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.proxy-configs-list {
+  display: grid;
+  gap: 8px;
+  max-height: 240px;
+  overflow: auto;
+  padding-right: 4px;
+}
+
+.proxy-config-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  border: 1px solid rgba(190, 173, 255, 0.18);
+  background: rgba(35, 30, 75, 0.45);
+}
+
+.proxy-config-row.active {
+  border-color: rgba(220, 205, 255, 0.52);
+  background: rgba(98, 79, 194, 0.28);
+}
+
+.proxy-config-main {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.proxy-config-main strong {
+  font-size: 14px;
+}
+
+.proxy-config-main span {
+  font-size: 12px;
+  opacity: 0.82;
+}
+
+.proxy-config-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.proxy-form-wrap {
+  border: 1px solid rgba(190, 173, 255, 0.18);
+  border-radius: 14px;
+  padding: 14px;
+  display: grid;
+  gap: 8px;
+  background: rgba(18, 16, 45, 0.5);
+}
+
+.proxy-form-wrap h3 {
+  margin: 0 0 4px;
+  font-size: 16px;
+}
+
+.proxy-form-wrap label {
+  font-size: 13px;
+  color: #dcd8f5;
+}
+
+.proxy-form-wrap input,
+.proxy-form-wrap textarea {
+  width: 100%;
+  border: 1px solid rgba(190, 173, 255, 0.2);
+  border-radius: 10px;
+  background: rgba(10, 9, 30, 0.8);
+  color: #f4f1ff;
+  padding: 10px 12px;
+  font-size: 14px;
+}
+
+.proxy-form-wrap textarea {
+  resize: vertical;
+}
+
+.proxy-form-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 6px;
 }
 
 .modal-head {

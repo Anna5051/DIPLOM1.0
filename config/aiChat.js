@@ -129,6 +129,7 @@ async function buildBotReplyFromHistory(
   personaName,
   upperMessageId = null,
   flags = {},
+  runtimeConfig = {},
 ) {
   const historySql = upperMessageId
     ? `
@@ -161,6 +162,7 @@ async function buildBotReplyFromHistory(
     personaName: String(personaName || ""),
     history: mapMessagesToOllamaHistory(historyRows),
     regenerate: Boolean(flags.regenerate),
+    runtimeConfig,
   });
 }
 
@@ -173,7 +175,7 @@ function buildSamplingOptions(regenerate) {
   };
 }
 
-async function requestOllamaChat(model, messages, optionOverrides = {}) {
+async function requestOllamaChat(model, messages, optionOverrides = {}, runtimeConfig = {}) {
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), OLLAMA_TIMEOUT_MS);
 
@@ -186,26 +188,47 @@ async function requestOllamaChat(model, messages, optionOverrides = {}) {
       ...optionOverrides,
     };
 
-    const response = await fetch(`${OLLAMA_BASE_URL}/api/chat`, {
+    const proxyUrl = String(runtimeConfig?.proxy_url || "").trim();
+    const proxyModel = String(runtimeConfig?.model || "").trim();
+    const proxyApiKey = String(runtimeConfig?.api_key || "").trim();
+
+    const useProxy = Boolean(proxyUrl);
+    const response = await fetch(useProxy ? proxyUrl : `${OLLAMA_BASE_URL}/api/chat`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
+        ...(useProxy && proxyApiKey ? { Authorization: `Bearer ${proxyApiKey}` } : {}),
       },
-      body: JSON.stringify({
-        model,
-        stream: false,
-        messages,
-        options,
-      }),
+      body: JSON.stringify(
+        useProxy
+          ? {
+              model: proxyModel || model,
+              messages,
+              temperature: options.temperature,
+              top_p: options.top_p,
+              stream: false,
+            }
+          : {
+              model,
+              stream: false,
+              messages,
+              options,
+            },
+      ),
       signal: controller.signal,
     });
 
     const data = await response.json().catch(() => ({}));
     if (!response.ok) {
-      throw new Error(data.error || `Ollama error (${response.status})`);
+      throw new Error(data.error || data.message || `LLM error (${response.status})`);
     }
 
-    const text = String(data?.message?.content || "").trim();
+    const text = String(
+      data?.message?.content ||
+        data?.choices?.[0]?.message?.content ||
+        data?.choices?.[0]?.text ||
+        "",
+    ).trim();
     if (!text) {
       throw new Error("Пустой ответ от модели");
     }
@@ -216,7 +239,13 @@ async function requestOllamaChat(model, messages, optionOverrides = {}) {
   }
 }
 
-async function polishRussianReply(model, baseMessages, draftReply, samplingOptions = {}) {
+async function polishRussianReply(
+  model,
+  baseMessages,
+  draftReply,
+  samplingOptions = {},
+  runtimeConfig = {},
+) {
   const draft = String(draftReply || "").trim();
   if (!draft) return draft;
 
@@ -243,6 +272,7 @@ async function polishRussianReply(model, baseMessages, draftReply, samplingOptio
       top_p: Math.max(0.72, OLLAMA_TOP_P - 0.08),
       repeat_penalty: Math.max(1.05, OLLAMA_REPEAT_PENALTY),
     },
+    runtimeConfig,
   );
 }
 
@@ -394,6 +424,7 @@ async function enforceReplyQuality(
   botName,
   personaName,
   samplingOptions = {},
+  runtimeConfig = {},
 ) {
   let currentReply = String(draftReply || "").trim();
   let attempts = 0;
@@ -429,6 +460,7 @@ async function enforceReplyQuality(
         { role: "user", content: rewriteInstruction },
       ],
       samplingOptions,
+      runtimeConfig,
     );
     attempts += 1;
   }
@@ -461,6 +493,7 @@ async function enforceReplyQuality(
         top_p: 0.93,
         repeat_penalty: Math.min(1.35, OLLAMA_REPEAT_PENALTY + 0.15),
       },
+      runtimeConfig,
     );
     const refined = String(fresh || "").trim();
     if (isReplyAcceptable(refined, botName, personaName, baseMessages)) {
@@ -479,20 +512,28 @@ async function generateBotReply({
   personaName,
   history,
   regenerate = false,
+  runtimeConfig = {},
 }) {
   const samplingOptions = buildSamplingOptions(regenerate);
+  const customPrompt = String(runtimeConfig?.custom_prompt || "").trim();
+  const usingProxy = Boolean(String(runtimeConfig?.proxy_url || "").trim());
 
-  const messages = [
-    {
+  const messages = [];
+  messages.push({
+    role: "system",
+    content: buildSystemPrompt(botSystemPrompt, personaPrompt, botName),
+  });
+  if (customPrompt) {
+    messages.push({
       role: "system",
-      content: buildSystemPrompt(botSystemPrompt, personaPrompt, botName),
-    },
-    ...history,
-  ];
+      content: `Дополнительные инструкции прокси:\n${customPrompt}`,
+    });
+  }
+  messages.push(...history);
 
   try {
-    let reply = await requestOllamaChat(OLLAMA_MODEL, messages, samplingOptions);
-    reply = await polishRussianReply(OLLAMA_MODEL, messages, reply, samplingOptions);
+    let reply = await requestOllamaChat(OLLAMA_MODEL, messages, samplingOptions, runtimeConfig);
+    reply = await polishRussianReply(OLLAMA_MODEL, messages, reply, samplingOptions, runtimeConfig);
     reply = await enforceReplyQuality(
       OLLAMA_MODEL,
       messages,
@@ -500,6 +541,7 @@ async function generateBotReply({
       botName,
       personaName,
       samplingOptions,
+      runtimeConfig,
     );
     if (isReplyAcceptable(reply, botName, personaName, messages)) {
       return reply;
@@ -518,12 +560,18 @@ async function generateBotReply({
       },
     ];
 
-    const expandedDraft = await requestOllamaChat(OLLAMA_MODEL, expansionMessages, samplingOptions);
+    const expandedDraft = await requestOllamaChat(
+      OLLAMA_MODEL,
+      expansionMessages,
+      samplingOptions,
+      runtimeConfig,
+    );
     const polishedExpandedDraft = await polishRussianReply(
       OLLAMA_MODEL,
       messages,
       expandedDraft,
       samplingOptions,
+      runtimeConfig,
     );
     const expanded = await enforceReplyQuality(
       OLLAMA_MODEL,
@@ -532,19 +580,29 @@ async function generateBotReply({
       botName,
       personaName,
       samplingOptions,
+      runtimeConfig,
     );
     return expanded;
   } catch (primaryError) {
+    if (usingProxy) {
+      throw primaryError;
+    }
     if (!OLLAMA_FALLBACK_MODEL || OLLAMA_FALLBACK_MODEL === OLLAMA_MODEL) {
       throw primaryError;
     }
 
-    let fallbackReply = await requestOllamaChat(OLLAMA_FALLBACK_MODEL, messages, samplingOptions);
+    let fallbackReply = await requestOllamaChat(
+      OLLAMA_FALLBACK_MODEL,
+      messages,
+      samplingOptions,
+      runtimeConfig,
+    );
     fallbackReply = await polishRussianReply(
       OLLAMA_FALLBACK_MODEL,
       messages,
       fallbackReply,
       samplingOptions,
+      runtimeConfig,
     );
     fallbackReply = await enforceReplyQuality(
       OLLAMA_FALLBACK_MODEL,
@@ -553,6 +611,7 @@ async function generateBotReply({
       botName,
       personaName,
       samplingOptions,
+      runtimeConfig,
     );
     if (isReplyAcceptable(fallbackReply, botName, personaName, messages)) {
       return fallbackReply;
@@ -574,12 +633,14 @@ async function generateBotReply({
       OLLAMA_FALLBACK_MODEL,
       fallbackExpansionMessages,
       samplingOptions,
+      runtimeConfig,
     );
     const polishedFallbackExpanded = await polishRussianReply(
       OLLAMA_FALLBACK_MODEL,
       messages,
       fallbackExpanded,
       samplingOptions,
+      runtimeConfig,
     );
     const fallbackExpandedChecked = await enforceReplyQuality(
       OLLAMA_FALLBACK_MODEL,
@@ -588,6 +649,7 @@ async function generateBotReply({
       botName,
       personaName,
       samplingOptions,
+      runtimeConfig,
     );
     return fallbackExpandedChecked;
   }

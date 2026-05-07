@@ -19,6 +19,9 @@
     </div>
 
     <div class="chat-topbar-right">
+      <button id="proxySettingsBtn" class="proxy-settings-btn" type="button">
+        используя прокси
+      </button>
       <button id="personaBtn" class="persona-pill" type="button">
         Персона: <span id="activePersonaName">не выбрана</span>
       </button>
@@ -146,6 +149,40 @@
 
   <div id="pageToast" class="page-toast hidden" role="status" aria-live="polite"></div>
 
+  <div id="proxyModal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="proxyModalTitle">
+    <div class="modal-card proxy-modal-card">
+      <div class="modal-head">
+        <h2 id="proxyModalTitle">Настройки API</h2>
+        <button id="closeProxyModalBtn" type="button">×</button>
+      </div>
+      <div class="proxy-modal-body">
+        <div class="proxy-toolbar">
+          <button type="button" class="secondary-btn" id="addProxyConfigBtn">+ Добавить прокси</button>
+          <button type="button" class="ghost-btn" id="useBuiltinModelBtn">Использовать встроенный qwen</button>
+        </div>
+        <div id="proxyConfigsList" class="proxy-configs-list"></div>
+
+        <div class="proxy-form-wrap">
+          <h3 id="proxyFormTitle">Новая конфигурация</h3>
+          <label>Название</label>
+          <input id="proxyNameInput" type="text" placeholder="My Proxy" />
+          <label>Модель</label>
+          <input id="proxyModelInput" type="text" placeholder="gpt-4, qwen..." />
+          <label>Proxy URL</label>
+          <input id="proxyUrlInput" type="text" placeholder="https://proxy.com/v1/chat/completions" />
+          <label>API Key</label>
+          <input id="proxyApiKeyInput" type="password" placeholder="sk-... (optional)" />
+          <label>Custom Prompt</label>
+          <textarea id="proxyPromptInput" rows="4" placeholder="Дополнительные инструкции..."></textarea>
+          <div class="proxy-form-actions">
+            <button type="button" class="ghost-btn" id="cancelProxyEditBtn">Отмена</button>
+            <button type="button" class="secondary-btn" id="saveProxyConfigBtn">Сохранить</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <script>
     let API_BASE =
       typeof window !== "undefined" && window.location && window.location.origin
@@ -234,6 +271,20 @@
     const clearChatBtn = document.getElementById("clearChatBtn");
     const newChatBtn = document.getElementById("newChatBtn");
     const pageToast = document.getElementById("pageToast");
+    const proxySettingsBtn = document.getElementById("proxySettingsBtn");
+    const proxyModal = document.getElementById("proxyModal");
+    const closeProxyModalBtn = document.getElementById("closeProxyModalBtn");
+    const addProxyConfigBtn = document.getElementById("addProxyConfigBtn");
+    const useBuiltinModelBtn = document.getElementById("useBuiltinModelBtn");
+    const proxyConfigsList = document.getElementById("proxyConfigsList");
+    const proxyFormTitle = document.getElementById("proxyFormTitle");
+    const proxyNameInput = document.getElementById("proxyNameInput");
+    const proxyModelInput = document.getElementById("proxyModelInput");
+    const proxyUrlInput = document.getElementById("proxyUrlInput");
+    const proxyApiKeyInput = document.getElementById("proxyApiKeyInput");
+    const proxyPromptInput = document.getElementById("proxyPromptInput");
+    const cancelProxyEditBtn = document.getElementById("cancelProxyEditBtn");
+    const saveProxyConfigBtn = document.getElementById("saveProxyConfigBtn");
 
     let currentChatId = null;
     let currentBot = null;
@@ -243,6 +294,11 @@
     let personas = [];
     let activePersona = null;
     let selectedPersonaInModal = null;
+    const PROXY_CONFIGS_KEY = `chatProxyConfigs_${userId}`;
+    const ACTIVE_PROXY_KEY = `chatActiveProxy_${userId}`;
+    let proxyConfigs = [];
+    let activeProxyId = null;
+    let editingProxyId = null;
 
     function escapeHtml(text) {
       const div = document.createElement("div");
@@ -345,6 +401,97 @@
       messagesBox.innerHTML = `
         <div class="message-empty">${escapeHtml(text)}</div>
       `;
+    }
+
+    function readProxyConfigs() {
+      try {
+        const raw = localStorage.getItem(PROXY_CONFIGS_KEY);
+        const parsed = JSON.parse(raw || "[]");
+        proxyConfigs = Array.isArray(parsed) ? parsed : [];
+      } catch {
+        proxyConfigs = [];
+      }
+      activeProxyId = localStorage.getItem(ACTIVE_PROXY_KEY) || null;
+    }
+
+    function writeProxyConfigs() {
+      localStorage.setItem(PROXY_CONFIGS_KEY, JSON.stringify(proxyConfigs));
+      if (activeProxyId) {
+        localStorage.setItem(ACTIVE_PROXY_KEY, activeProxyId);
+      } else {
+        localStorage.removeItem(ACTIVE_PROXY_KEY);
+      }
+    }
+
+    function getActiveProxyConfig() {
+      if (!activeProxyId) return null;
+      return proxyConfigs.find((item) => item.id === activeProxyId) || null;
+    }
+
+    function updateProxyButtonLabel() {
+      const active = getActiveProxyConfig();
+      if (!active) {
+        proxySettingsBtn.textContent = "встроенный qwen";
+        return;
+      }
+      proxySettingsBtn.textContent = `прокси: ${active.name}`;
+    }
+
+    function clearProxyForm() {
+      editingProxyId = null;
+      proxyFormTitle.textContent = "Новая конфигурация";
+      proxyNameInput.value = "";
+      proxyModelInput.value = "";
+      proxyUrlInput.value = "";
+      proxyApiKeyInput.value = "";
+      proxyPromptInput.value = "";
+    }
+
+    function fillProxyForm(config) {
+      editingProxyId = config.id;
+      proxyFormTitle.textContent = "Редактировать конфигурацию";
+      proxyNameInput.value = config.name || "";
+      proxyModelInput.value = config.model || "";
+      proxyUrlInput.value = config.proxyUrl || "";
+      proxyApiKeyInput.value = config.apiKey || "";
+      proxyPromptInput.value = config.customPrompt || "";
+    }
+
+    function renderProxyConfigs() {
+      proxyConfigsList.innerHTML = "";
+      if (!proxyConfigs.length) {
+        proxyConfigsList.innerHTML = `<div class="persona-empty">Конфигураций пока нет</div>`;
+        return;
+      }
+
+      proxyConfigs.forEach((config) => {
+        const row = document.createElement("div");
+        row.className = activeProxyId === config.id ? "proxy-config-row active" : "proxy-config-row";
+        row.innerHTML = `
+          <div class="proxy-config-main">
+            <strong>${escapeHtml(config.name || "Без имени")}</strong>
+            <span>${escapeHtml(config.model || "Модель не указана")}</span>
+          </div>
+          <div class="proxy-config-actions">
+            <button type="button" class="message-action-btn" data-proxy-action="use" data-proxy-id="${config.id}" title="Использовать">✓</button>
+            <button type="button" class="message-action-btn" data-proxy-action="edit" data-proxy-id="${config.id}" title="Редактировать">✎</button>
+            <button type="button" class="message-action-btn danger" data-proxy-action="delete" data-proxy-id="${config.id}" title="Удалить">🗑</button>
+          </div>
+        `;
+        proxyConfigsList.appendChild(row);
+      });
+    }
+
+    function openProxyModal() {
+      readProxyConfigs();
+      renderProxyConfigs();
+      clearProxyForm();
+      proxyModal.classList.remove("hidden");
+      dropdownMenu.classList.remove("open");
+    }
+
+    function closeProxyModal() {
+      proxyModal.classList.add("hidden");
     }
 
     let toastTimer = null;
@@ -991,6 +1138,7 @@
     }
 
     async function sendMessageToServer(text, signal) {
+      const activeProxy = getActiveProxyConfig();
       const payload = {
         text,
         persona_id: activePersona?.id || null,
@@ -999,6 +1147,15 @@
           activePersona?.persona_prompt ||
           activePersona?.description ||
           "",
+        proxy: activeProxy
+          ? {
+              name: activeProxy.name || "",
+              model: activeProxy.model || "",
+              proxy_url: activeProxy.proxyUrl || "",
+              api_key: activeProxy.apiKey || "",
+              custom_prompt: activeProxy.customPrompt || "",
+            }
+          : null,
       };
 
       const response = await fetch(`${API_BASE}/chat/${currentChatId}/message`, {
@@ -1051,6 +1208,7 @@
     }
 
     async function regenerateMessageOnServer(messageId, signal) {
+      const activeProxy = getActiveProxyConfig();
       const response = await fetch(`${API_BASE}/chat/${currentChatId}/message/${messageId}/regenerate`, {
         method: "POST",
         headers: {
@@ -1060,6 +1218,15 @@
           user_id: userId,
           persona_prompt: activePersona?.persona_prompt || activePersona?.description || "",
           persona_name: activePersona?.name || "",
+          proxy: activeProxy
+            ? {
+                name: activeProxy.name || "",
+                model: activeProxy.model || "",
+                proxy_url: activeProxy.proxyUrl || "",
+                api_key: activeProxy.apiKey || "",
+                custom_prompt: activeProxy.customPrompt || "",
+              }
+            : null,
         }),
         signal,
       });
@@ -1200,8 +1367,85 @@
     });
 
     personaBtn.addEventListener("click", openPersonaModal);
+    proxySettingsBtn.addEventListener("click", openProxyModal);
     openPersonaModalBtn.addEventListener("click", openPersonaModal);
     closePersonaModalBtn.addEventListener("click", closePersonaModal);
+    closeProxyModalBtn.addEventListener("click", closeProxyModal);
+    addProxyConfigBtn.addEventListener("click", clearProxyForm);
+    useBuiltinModelBtn.addEventListener("click", () => {
+      activeProxyId = null;
+      writeProxyConfigs();
+      renderProxyConfigs();
+      updateProxyButtonLabel();
+      showToast("Используется встроенный qwen");
+    });
+    cancelProxyEditBtn.addEventListener("click", clearProxyForm);
+
+    proxyModal.addEventListener("click", (e) => {
+      if (e.target === proxyModal) closeProxyModal();
+    });
+
+    proxyConfigsList.addEventListener("click", async (event) => {
+      const btn = event.target.closest("[data-proxy-action]");
+      if (!btn) return;
+      const action = btn.dataset.proxyAction;
+      const proxyId = btn.dataset.proxyId;
+      const target = proxyConfigs.find((item) => item.id === proxyId);
+      if (!target) return;
+
+      if (action === "use") {
+        activeProxyId = target.id;
+        writeProxyConfigs();
+        renderProxyConfigs();
+        updateProxyButtonLabel();
+        showToast(`Используется прокси: ${target.name}`);
+        return;
+      }
+      if (action === "edit") {
+        fillProxyForm(target);
+        return;
+      }
+      if (action === "delete") {
+        const ok = await showChatConfirm(`Удалить прокси "${target.name}"?`);
+        if (!ok) return;
+        proxyConfigs = proxyConfigs.filter((item) => item.id !== target.id);
+        if (activeProxyId === target.id) activeProxyId = null;
+        writeProxyConfigs();
+        renderProxyConfigs();
+        updateProxyButtonLabel();
+        clearProxyForm();
+      }
+    });
+
+    saveProxyConfigBtn.addEventListener("click", () => {
+      const name = proxyNameInput.value.trim();
+      if (!name) {
+        showToast("Введите название прокси");
+        return;
+      }
+
+      const nextConfig = {
+        id: editingProxyId || `${Date.now()}_${Math.random().toString(36).slice(2)}`,
+        name,
+        model: proxyModelInput.value.trim(),
+        proxyUrl: proxyUrlInput.value.trim(),
+        apiKey: proxyApiKeyInput.value.trim(),
+        customPrompt: proxyPromptInput.value.trim(),
+      };
+
+      if (editingProxyId) {
+        proxyConfigs = proxyConfigs.map((item) => (item.id === editingProxyId ? nextConfig : item));
+      } else {
+        proxyConfigs.unshift(nextConfig);
+      }
+
+      if (!activeProxyId) activeProxyId = nextConfig.id;
+      writeProxyConfigs();
+      renderProxyConfigs();
+      updateProxyButtonLabel();
+      clearProxyForm();
+      showToast("Конфигурация прокси сохранена");
+    });
 
     clearChatBtn.addEventListener("click", async () => {
       if (!currentChatId) {
@@ -1254,6 +1498,8 @@
     });
 
     (async () => {
+      readProxyConfigs();
+      updateProxyButtonLabel();
       await loadPersonas();
       await loadChatByBot();
     })();

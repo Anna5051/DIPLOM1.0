@@ -195,6 +195,18 @@ function parsePersonaIdFromQuery(req) {
   return Number.isFinite(n) ? n : null;
 }
 
+function normalizeRuntimeConfigFromBodyProxy(proxy) {
+  if (!proxy || typeof proxy !== "object") return {};
+  const proxyUrl = String(proxy.proxy_url || proxy.proxyUrl || "").trim();
+  if (!proxyUrl) return {};
+  return {
+    proxy_url: proxyUrl,
+    model: String(proxy.model || "").trim(),
+    api_key: String(proxy.api_key || proxy.apiKey || "").trim(),
+    custom_prompt: String(proxy.custom_prompt || proxy.customPrompt || "").trim(),
+  };
+}
+
 function requireUserIdFromQuery(req, res) {
   const userId = Number(req.query.user_id);
   if (!Number.isFinite(userId) || userId < 1) {
@@ -1274,7 +1286,8 @@ app.get("/chat/:chatId", (req, res) => {
 /*отправка сообщений*/
 app.post("/chat/:chatId/message", (req, res) => {
   const { chatId } = req.params;
-  const { text, persona_prompt, persona_name } = req.body;
+  const { text, persona_prompt, persona_name, proxy } = req.body;
+  const runtimeConfig = normalizeRuntimeConfigFromBodyProxy(proxy);
   const normalizedText = String(text || "").trim();
 
   if (!normalizedText) {
@@ -1359,6 +1372,7 @@ app.post("/chat/:chatId/message", (req, res) => {
             personaPrompt: String(persona_prompt || ""),
             personaName: String(persona_name || ""),
             history: mapMessagesToOllamaHistory(historyRows),
+            runtimeConfig,
           });
         } catch (modelErr) {
           return res.status(500).json({
@@ -1510,7 +1524,8 @@ app.delete("/chat/:chatId/message/:messageId", async (req, res) => {
 
 app.post("/chat/:chatId/message/:messageId/regenerate", async (req, res) => {
   const { chatId, messageId } = req.params;
-  const { user_id, persona_prompt, persona_name } = req.body;
+  const { user_id, persona_prompt, persona_name, proxy } = req.body;
+  const runtimeConfig = normalizeRuntimeConfigFromBodyProxy(proxy);
 
   if (!user_id) {
     return res.status(400).json({ message: "Не указан пользователь" });
@@ -1559,6 +1574,7 @@ app.post("/chat/:chatId/message/:messageId/regenerate", async (req, res) => {
       String(persona_name || ""),
       upperMessageId,
       { regenerate: true },
+      runtimeConfig,
     );
 
     await dbQuery(
@@ -1587,7 +1603,8 @@ app.post("/chat/:chatId/message/:messageId/regenerate", async (req, res) => {
 
 app.post("/chat/:chatId/continue", async (req, res) => {
   const { chatId } = req.params;
-  const { user_id, persona_prompt, persona_name } = req.body;
+  const { user_id, persona_prompt, persona_name, proxy } = req.body;
+  const runtimeConfig = normalizeRuntimeConfigFromBodyProxy(proxy);
 
   if (!user_id) {
     return res.status(400).json({ message: "Не указан пользователь" });
@@ -1607,6 +1624,8 @@ app.post("/chat/:chatId/continue", async (req, res) => {
       String(persona_prompt || ""),
       String(persona_name || ""),
       null,
+      {},
+      runtimeConfig,
     );
     const insertResult = await dbQuery(
       `
