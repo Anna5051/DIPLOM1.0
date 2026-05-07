@@ -1376,8 +1376,7 @@ app.post("/chat/:chatId/message", (req, res) => {
           });
         } catch (modelErr) {
           return res.status(500).json({
-            message:
-              "Не удалось получить ответ от модели. Проверьте Ollama и выбранную модель.",
+            message: `Не удалось получить ответ от модели: ${String(modelErr?.message || "неизвестная ошибка")}`,
           });
         }
 
@@ -1597,7 +1596,9 @@ app.post("/chat/:chatId/message/:messageId/regenerate", async (req, res) => {
       },
     });
   } catch (error) {
-    return res.status(500).json({ message: "Ошибка перегенерации сообщения" });
+    return res.status(500).json({
+      message: `Ошибка перегенерации сообщения: ${String(error?.message || "неизвестная ошибка")}`,
+    });
   }
 });
 
@@ -1652,7 +1653,9 @@ app.post("/chat/:chatId/continue", async (req, res) => {
       },
     });
   } catch (error) {
-    return res.status(500).json({ message: "Ошибка генерации продолжения" });
+    return res.status(500).json({
+      message: `Ошибка генерации продолжения: ${String(error?.message || "неизвестная ошибка")}`,
+    });
   }
 });
 

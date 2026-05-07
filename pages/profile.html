@@ -7,6 +7,7 @@
     <link rel="stylesheet" href="/css/general.css" />
     <link rel="stylesheet" href="/css/profile.css" />
     <script src="/js/notifications.js" defer></script>
+    <script src="/js/siteDialogs.js" defer></script>
   </head>
   <body>
     <header class="topbar">
@@ -18,7 +19,11 @@
       </div>
 
       <div class="topbar-right">
-        <a href="/pages/history.html" class="top-icon">💬</a>
+        <a href="/pages/history.html" class="top-icon" aria-label="Чаты">
+          <svg class="topbar-icon-svg" viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M4 4h12v9H7l-3 3V4zm14 0h2v12h-6v-2h4V4z" />
+          </svg>
+        </a>
         <a href="/pages/profile.html" class="profile-mini">
           <img id="topbarAvatar" src="/img/icon.svg" alt="avatar" />
         </a>
@@ -53,15 +58,26 @@
                 <div>
                   <h1>@<span id="username">Hanna</span></h1>
                   <p class="followers-count">
-                    <span id="followersCount">0</span> followers
+                    <span id="followersCount">0</span> подписчиков
                   </p>
                   <p class="member-since">
-                    Member Since <span id="memberSince">Aug 19, 2024</span>
+                    С нами с <span id="memberSince">19 авг 2024</span>
                   </p>
                 </div>
 
-                <button class="edit-btn" id="toggleEditBtn" type="button">
-                  Редактировать профиль
+                <button
+                  class="edit-btn edit-emoji-btn"
+                  id="toggleEditBtn"
+                  type="button"
+                  aria-label="Редактировать профиль"
+                  title="Редактировать профиль"
+                >
+                  <svg class="edit-toggle-icon" viewBox="0 0 24 24" aria-hidden="true">
+                    <path
+                      d="M4 17.25V20h2.75l8.06-8.06-2.75-2.75L4 17.25zm12.71-9.04a1 1 0 0 0 0-1.41l-1.5-1.5a1 1 0 0 0-1.41 0l-1.1 1.09 2.75 2.75 1.26-1.93z"
+                      fill="currentColor"
+                    />
+                  </svg>
                 </button>
                 <button
                   class="edit-btn"
@@ -76,7 +92,7 @@
               <div class="profile-bio-preview-card">
                 <div class="profile-bio-title">О себе</div>
                 <div class="profile-description">
-                  <div id="profilePreview">Hi, I'm Hanna.</div>
+                  <div id="profilePreview">Описание пока не заполнено</div>
                 </div>
               </div>
             </div>
@@ -90,7 +106,7 @@
 
             <div class="editor-toolbar">
               <button type="button" data-command="formatBlock" data-value="p">
-                Paragraph
+                Абзац
               </button>
               <button type="button" data-command="bold"><b>B</b></button>
               <button type="button" data-command="italic"><i>I</i></button>
@@ -112,7 +128,7 @@
               contenteditable="true"
               spellcheck="false"
             >
-              Hi, I'm Hanna.
+              Описание пока не заполнено
             </div>
 
             <div class="profile-actions">
@@ -142,8 +158,8 @@
                 </button>
               </div>
               <select id="sortCharacters" class="sidebar-select">
-                <option value="latest">Latest</option>
-                <option value="name">Name</option>
+                <option value="latest">Сначала новые</option>
+                <option value="name">По имени</option>
               </select>
             </div>
             <div id="createdBotsList" class="created-bots-list"></div>
@@ -296,6 +312,36 @@
       function updateFollowButton(profile) {
         const active = isFollowing(profile);
         followAuthorBtn.textContent = active ? "Отписаться" : "Подписаться";
+        followAuthorBtn.classList.toggle("is-following", active);
+      }
+
+      function syncEditToggleButtonState() {
+        const isHidden = profileEditorPanel.classList.contains("hidden");
+        toggleEditBtn.innerHTML = isHidden
+          ? `
+            <svg class="edit-toggle-icon" viewBox="0 0 24 24" aria-hidden="true">
+              <path
+                d="M4 17.25V20h2.75l8.06-8.06-2.75-2.75L4 17.25zm12.71-9.04a1 1 0 0 0 0-1.41l-1.5-1.5a1 1 0 0 0-1.41 0l-1.1 1.09 2.75 2.75 1.26-1.93z"
+                fill="currentColor"
+              />
+            </svg>
+          `
+          : `
+            <svg class="edit-toggle-icon" viewBox="0 0 24 24" aria-hidden="true">
+              <path
+                d="M18.3 5.71a1 1 0 0 0-1.41 0L12 10.59 7.11 5.71A1 1 0 0 0 5.7 7.12L10.59 12 5.7 16.89a1 1 0 1 0 1.41 1.41L12 13.41l4.89 4.89a1 1 0 0 0 1.41-1.41L13.41 12l4.89-4.88a1 1 0 0 0 0-1.41z"
+                fill="currentColor"
+              />
+            </svg>
+          `;
+        toggleEditBtn.setAttribute(
+          "title",
+          isHidden ? "Редактировать профиль" : "Скрыть редактор",
+        );
+        toggleEditBtn.setAttribute(
+          "aria-label",
+          isHidden ? "Редактировать профиль" : "Скрыть редактор",
+        );
       }
 
       function applyProfileBaseData(profile) {
@@ -304,7 +350,7 @@
         if (profile.created_at) {
           const date = new Date(profile.created_at);
           if (!Number.isNaN(date.getTime())) {
-            memberSince.textContent = date.toLocaleDateString("en-US", {
+            memberSince.textContent = date.toLocaleDateString("ru-RU", {
               month: "short",
               day: "numeric",
               year: "numeric",
@@ -340,6 +386,10 @@
         profileAvatarInput.disabled = true;
         document.querySelector(".avatar-change-btn").style.display = "none";
         followAuthorBtn.style.display = "inline-flex";
+      }
+
+      if (!isExternalProfile) {
+        syncEditToggleButtonState();
       }
 
       function compressImage(file, maxSize = 320, quality = 0.82) {
@@ -435,16 +485,15 @@
       toggleEditBtn.addEventListener("click", () => {
         if (isExternalProfile) return;
         profileEditorPanel.classList.toggle("hidden");
-
-        toggleEditBtn.textContent = profileEditorPanel.classList.contains(
-          "hidden",
-        )
-          ? "Редактировать профиль"
-          : "Скрыть редактор";
+        syncEditToggleButtonState();
       });
 
-      logoutBtn.addEventListener("click", () => {
-        const shouldLogout = window.confirm("Выйти из аккаунта?");
+      logoutBtn.addEventListener("click", async () => {
+        const shouldLogout = await siteConfirm("Выйти из аккаунта?", {
+          title: "Подтверждение",
+          confirmText: "Выйти",
+          cancelText: "Отмена",
+        });
         if (!shouldLogout) return;
 
         localStorage.removeItem("user");
@@ -463,8 +512,12 @@
           });
         });
 
-      document.getElementById("createLinkBtn").addEventListener("click", () => {
-        const url = prompt("Введите ссылку:");
+      document.getElementById("createLinkBtn").addEventListener("click", async () => {
+        const url = await sitePrompt("Введите ссылку:", {
+          title: "Добавить ссылку",
+          placeholder: "https://example.com",
+          confirmText: "Вставить",
+        });
         if (!url) return;
 
         profileEditor.focus();
@@ -473,16 +526,27 @@
 
       document
         .getElementById("insertImageBtn")
-        .addEventListener("click", () => {
-          const url = prompt("Вставьте ссылку на изображение:");
+        .addEventListener("click", async () => {
+          const url = await sitePrompt("Вставьте ссылку на изображение:", {
+            title: "Добавить изображение",
+            placeholder: "https://example.com/image.jpg",
+            confirmText: "Вставить",
+          });
           if (!url) return;
 
           profileEditor.focus();
           document.execCommand("insertImage", false, url);
         });
 
-      document.getElementById("textColorBtn").addEventListener("click", () => {
-        const color = prompt("Введите цвет, например red, #ff00aa, white:");
+      document.getElementById("textColorBtn").addEventListener("click", async () => {
+        const color = await sitePrompt(
+          "Введите цвет, например red, #ff00aa, white:",
+          {
+            title: "Цвет текста",
+            placeholder: "#ff00aa",
+            confirmText: "Применить",
+          },
+        );
         if (!color) return;
 
         profileEditor.focus();
@@ -514,7 +578,7 @@
         profileEditor.innerHTML = currentHtml;
         profilePreview.innerHTML = currentHtml || "Описание пока не заполнено";
         profileEditorPanel.classList.add("hidden");
-        toggleEditBtn.textContent = "Редактировать профиль";
+        syncEditToggleButtonState();
       });
 
       followAuthorBtn.addEventListener("click", () => {

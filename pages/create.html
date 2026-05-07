@@ -7,6 +7,7 @@
     <link rel="stylesheet" href="/css/general.css" />
     <link rel="stylesheet" href="/css/create.css" />
     <script src="/js/notifications.js" defer></script>
+    <script src="/js/siteDialogs.js" defer></script>
   </head>
   <body>
     <header class="topbar">
@@ -18,7 +19,11 @@
       </div>
 
       <div class="topbar-right">
-        <a href="/pages/history.html" class="top-icon">💬</a>
+        <a href="/pages/history.html" class="top-icon" aria-label="Чаты">
+          <svg class="topbar-icon-svg" viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M4 4h12v9H7l-3 3V4zm14 0h2v12h-6v-2h4V4z" />
+          </svg>
+        </a>
         <a href="/pages/profile.html" class="profile-mini" aria-label="Профиль">
           <img id="topAvatar" src="/img/icon.svg" alt="avatar" />
         </a>
@@ -162,7 +167,7 @@
 
                 <div class="tag-suggestions" id="tagSuggestions"></div>
                 <p class="tags-hint" id="tagsHint">
-                  Показываются все метки из поиска и существующих ботов. Нажми на метку, чтобы добавить.
+                  Показываются метки из поиска. Нажми на метку, чтобы добавить.
                 </p>
                 <div id="tagsNotice" class="tags-notice" hidden></div>
 
@@ -352,6 +357,7 @@
 
       const tags = [];
       const availableTags = new Set();
+      const allowedTags = new Set();
       let currentAvatarValue = "";
 
       function normalizeTag(rawTag) {
@@ -362,52 +368,74 @@
           .toLowerCase();
       }
 
+      const TAG_LABELS = {
+        romance: "Романтика",
+        drama: "Драма",
+        rp: "Ролевые сценарии",
+        dark: "Тёмные сюжеты",
+        fantasy: "Фэнтези",
+        anime: "Аниме",
+        adventure: "Приключения",
+        story: "Истории",
+        villain: "Злодеи",
+        hero: "Герои",
+        mystery: "Мистика",
+        magic: "Магия",
+        slowburn: "Медленное развитие",
+        enemies: "От ненависти до любви",
+        oc: "Оригинальные персонажи",
+        scenario: "Сценарные",
+        male: "Мужской POV",
+        female: "Женский POV",
+        nonhuman: "Нелюди",
+        historical: "Исторические",
+        school: "Школьные",
+        office: "Офисные",
+        mafia: "Мафия",
+        detective: "Детектив",
+        vampire: "Вампиры",
+        robot: "Роботы",
+        scifi: "Sci-Fi",
+        comedy: "Комедия",
+        angst: "Ангст",
+        royalty: "Королевские",
+        monster: "Монстры",
+        assistant: "Ассистенты",
+        beginning: "Для новичков",
+        music: "Музыкальные",
+        cyberpunk: "Киберпанк",
+        analytics: "Аналитика",
+        street: "Уличные сюжеты",
+        space: "Космос",
+        command: "Командование",
+        tactical: "Тактика",
+        engineering: "Инженерия",
+        logic: "Логика",
+        gothic: "Готика",
+        history: "Исторические",
+        archive: "Архивные",
+        scholar: "Ученые",
+        nature: "Природа",
+        soft: "Мягкий стиль",
+        city: "Городские",
+        slice_of_life: "Повседневность",
+        ru: "Русский",
+      };
+
+      const TAG_ALIASES = {
+        rpg: "rp",
+        "sci-fi": "scifi",
+        sci_fi: "scifi",
+      };
+
+      function toCanonicalTag(rawTag) {
+        const normalized = normalizeTag(rawTag);
+        return TAG_ALIASES[normalized] || normalized;
+      }
+
       function formatTagLabel(tag) {
-        const map = {
-          all: "Все",
-          adventure: "Приключения",
-          angst: "Ангст",
-          anime: "Аниме",
-          assistant: "Ассистент",
-          beginning: "Для новичков",
-          comedy: "Комедия",
-          dark: "Темные сюжеты",
-          detective: "Детектив",
-          dominant: "Доминант",
-          drama: "Драма",
-          enemies: "От ненависти до любви",
-          fantasy: "Фэнтези",
-          female: "Женский POV",
-          flirt: "Флирт",
-          hero: "Герой",
-          historical: "Исторические",
-          mafia: "Мафия",
-          magic: "Магия",
-          male: "Мужской POV",
-          mature: "18+",
-          mlm: "MLM",
-          monster: "Монстр",
-          music: "Музыкальные",
-          mystery: "Мистика",
-          nonhuman: "Нелюди",
-          oc: "Оригинальные персонажи",
-          office: "Офисные",
-          politics: "Политика",
-          poly: "Полиамория",
-          religion: "Религия",
-          robot: "Роботы",
-          romance: "Романтика",
-          rpg: "Ролевые сценарии",
-          scenario: "Сценарные",
-          scifi: "Sci-Fi",
-          slowburn: "Медленное развитие",
-          story: "Истории",
-          submissive: "Сабмиссив",
-          villain: "Злодей",
-          vampire: "Вампиры",
-          wlw: "WLW",
-        };
-        return map[tag] || tag.replace(/_/g, " ");
+        const normalized = toCanonicalTag(tag);
+        return TAG_LABELS[normalized] || normalized.replace(/_/g, " ");
       }
 
       function splitRawTags(rawValue) {
@@ -438,8 +466,11 @@
         let duplicates = 0;
 
         chunks.forEach((chunk) => {
-          const normalized = normalizeTag(chunk);
+          const normalized = toCanonicalTag(chunk);
           if (!normalized) return;
+          if (allowedTags.size && !allowedTags.has(normalized)) {
+            return;
+          }
 
           availableTags.add(normalized);
           if (!tags.includes(normalized)) {
@@ -493,8 +524,9 @@
             const searchDoc = parser.parseFromString(searchHtml, "text/html");
             searchDoc.querySelectorAll("#tagCloud .tag-chip[data-tag]").forEach((chip) => {
               const tagValue = chip.getAttribute("data-tag") || "";
-              const normalized = normalizeTag(tagValue);
+              const normalized = toCanonicalTag(tagValue);
               if (normalized && normalized !== "all") {
+                allowedTags.add(normalized);
                 availableTags.add(normalized);
               }
             });
@@ -510,8 +542,8 @@
             const bots = Array.isArray(data) ? data : [];
             bots.forEach((bot) => {
               splitRawTags(bot.tags).forEach((tag) => {
-                const normalized = normalizeTag(tag);
-                if (normalized) {
+                const normalized = toCanonicalTag(tag);
+                if (normalized && allowedTags.has(normalized)) {
                   availableTags.add(normalized);
                 }
               });
@@ -636,8 +668,12 @@
           });
         });
 
-      document.getElementById("bioLinkBtn").addEventListener("click", () => {
-        const url = prompt("Введите ссылку:");
+      document.getElementById("bioLinkBtn").addEventListener("click", async () => {
+        const url = await sitePrompt("Введите ссылку:", {
+          title: "Добавить ссылку",
+          placeholder: "https://example.com",
+          confirmText: "Вставить",
+        });
         if (!url) return;
 
         bioEditor.focus();
@@ -928,7 +964,12 @@
       deleteBtn.addEventListener("click", async () => {
         if (!isEditMode) return;
 
-        const ok = confirm("Удалить этого бота?");
+        const ok = await siteConfirm("Удалить этого бота?", {
+          title: "Подтверждение удаления",
+          confirmText: "Удалить",
+          cancelText: "Отмена",
+          danger: true,
+        });
         if (!ok) return;
 
         try {

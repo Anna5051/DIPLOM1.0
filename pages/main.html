@@ -18,7 +18,11 @@
   </div>
 
   <div class="topbar-right">
-    <a href="/pages/history.html" class="top-icon">💬</a>
+    <a href="/pages/history.html" class="top-icon" aria-label="Чаты">
+      <svg class="topbar-icon-svg" viewBox="0 0 24 24" aria-hidden="true">
+        <path d="M4 4h12v9H7l-3 3V4zm14 0h2v12h-6v-2h4V4z" />
+      </svg>
+    </a>
     <a href="/pages/profile.html" class="profile-mini">
       <img id="topAvatar" src="/img/icon.svg" alt="avatar" />
     </a>
@@ -71,6 +75,14 @@
         <button class="tab-btn active" id="myBotsTabBtn">Мои персонажи</button>
         <button class="tab-btn" id="allBotsTabBtn">Все персонажи</button>
         <button class="tab-btn" id="favoritesBotsTabBtn">Избранные</button>
+        <button class="tab-btn" id="followingBotsTabBtn">Подписки</button>
+        <select id="botsSortSelect" class="bots-sort-select" aria-label="Сортировка персонажей">
+          <option value="new">Сначала новые</option>
+          <option value="old">Сначала старые</option>
+          <option value="name_asc">По имени (А-Я)</option>
+          <option value="name_desc">По имени (Я-А)</option>
+          <option value="author">По автору</option>
+        </select>
       </div>
 
       <section id="cards-grid" class="cards-grid"></section>
@@ -110,6 +122,8 @@
   const myBotsTabBtn = document.getElementById("myBotsTabBtn");
   const allBotsTabBtn = document.getElementById("allBotsTabBtn");
   const favoritesBotsTabBtn = document.getElementById("favoritesBotsTabBtn");
+  const followingBotsTabBtn = document.getElementById("followingBotsTabBtn");
+  const botsSortSelect = document.getElementById("botsSortSelect");
 
   const savedAvatar =
     localStorage.getItem(`profileAvatar_${savedUser.id}`) ||
@@ -123,6 +137,7 @@
   }
 
   let currentTab = "my";
+  let currentSort = "new";
   let myBotsData = [];
   let allBotsData = [];
 
@@ -182,6 +197,65 @@
       normalized.includes("стиль общения") ||
       normalized.includes("правила ролевой игры")
     );
+  }
+
+  function translateTag(tag) {
+    const key = String(tag || "").trim().toLowerCase().replace(/\s+/g, "_");
+    const map = {
+      romance: "Романтика",
+      drama: "Драма",
+      rp: "Ролевые сценарии",
+      dark: "Темные сюжеты",
+      fantasy: "Фэнтези",
+      anime: "Аниме",
+      adventure: "Приключения",
+      story: "Истории",
+      villain: "Злодеи",
+      hero: "Герои",
+      mystery: "Мистика",
+      magic: "Магия",
+      slowburn: "Медленное развитие",
+      enemies: "От ненависти до любви",
+      oc: "Оригинальные персонажи",
+      scenario: "Сценарные",
+      male: "Мужской POV",
+      female: "Женский POV",
+      nonhuman: "Нелюди",
+      historical: "Исторические",
+      school: "Школьные",
+      office: "Офисные",
+      mafia: "Мафия",
+      detective: "Детектив",
+      vampire: "Вампиры",
+      robot: "Роботы",
+      scifi: "Научная фантастика",
+      "sci-fi": "Научная фантастика",
+      comedy: "Комедия",
+      angst: "Ангст",
+      royalty: "Королевские",
+      monster: "Монстры",
+      assistant: "Ассистенты",
+      beginning: "Для новичков",
+      music: "Музыкальные",
+      cyberpunk: "Киберпанк",
+      analytics: "Аналитика",
+      street: "Уличные сюжеты",
+      space: "Космос",
+      command: "Командование",
+      tactical: "Тактика",
+      engineering: "Инженерия",
+      logic: "Логика",
+      gothic: "Готика",
+      history: "Исторические",
+      archive: "Архивные",
+      scholar: "Ученые",
+      nature: "Природа",
+      soft: "Мягкий стиль",
+      city: "Городские",
+      slice_of_life: "Повседневность",
+      ru: "Русский",
+    };
+    return map[key] || tag;
   }
 
   function getStoryText(bot) {
@@ -308,7 +382,9 @@ function renderBots(items) {
         <div class="bot-tags">
           ${
             tags.length
-              ? tags.map((tag) => `<span>${escapeHtml(tag)}</span>`).join("")
+              ? tags
+                  .map((tag) => `<span>${escapeHtml(translateTag(tag))}</span>`)
+                  .join("")
               : `<span>Нет тегов</span>`
           }
         </div>
@@ -337,6 +413,74 @@ function renderBots(items) {
     cardsGrid.appendChild(card);
   });
 }
+  function parseFollowersValue(raw) {
+    try {
+      const parsed = JSON.parse(raw || "[]");
+      return Array.isArray(parsed) ? parsed : [];
+    } catch {
+      return [];
+    }
+  }
+
+  function isFollowingAuthor(bot) {
+    const currentUserId = String(savedUser.id);
+    const byIdKey =
+      bot.creator_id != null ? `profileFollowers_author_${bot.creator_id}` : null;
+    const byNameKey = `profileFollowers_author_name_${String(bot.author || "unknown").toLowerCase()}`;
+
+    if (byIdKey) {
+      const followersById = parseFollowersValue(localStorage.getItem(byIdKey));
+      if (followersById.some((id) => String(id) === currentUserId)) return true;
+    }
+
+    const followersByName = parseFollowersValue(localStorage.getItem(byNameKey));
+    return followersByName.some((id) => String(id) === currentUserId);
+  }
+
+  function sortBots(items) {
+    const list = [...items];
+
+    if (currentSort === "name_asc") {
+      return list.sort((a, b) =>
+        String(a.name || "").localeCompare(String(b.name || ""), "ru", {
+          sensitivity: "base",
+        }),
+      );
+    }
+
+    if (currentSort === "name_desc") {
+      return list.sort((a, b) =>
+        String(b.name || "").localeCompare(String(a.name || ""), "ru", {
+          sensitivity: "base",
+        }),
+      );
+    }
+
+    if (currentSort === "author") {
+      return list.sort((a, b) =>
+        String(a.author || "").localeCompare(String(b.author || ""), "ru", {
+          sensitivity: "base",
+        }),
+      );
+    }
+
+    if (currentSort === "old") {
+      return list.sort((a, b) => {
+        const aTime = new Date(a.created_at || 0).getTime() || 0;
+        const bTime = new Date(b.created_at || 0).getTime() || 0;
+        if (aTime !== bTime) return aTime - bTime;
+        return Number(a.id || 0) - Number(b.id || 0);
+      });
+    }
+
+    return list.sort((a, b) => {
+      const aTime = new Date(a.created_at || 0).getTime() || 0;
+      const bTime = new Date(b.created_at || 0).getTime() || 0;
+      if (aTime !== bTime) return bTime - aTime;
+      return Number(b.id || 0) - Number(a.id || 0);
+    });
+  }
+
   function getCurrentSource() {
     if (currentTab === "all") return allBotsData;
     if (currentTab === "favorites") {
@@ -350,6 +494,9 @@ function renderBots(items) {
       });
 
       return [...unique.values()].filter((bot) => isFavoriteBot(bot.id));
+    }
+    if (currentTab === "following") {
+      return allBotsData.filter((bot) => isFollowingAuthor(bot));
     }
 
     return myBotsData;
@@ -365,7 +512,7 @@ function renderBots(items) {
         .includes(query)
     );
 
-    renderBots(filtered);
+    renderBots(sortBots(filtered));
   }
 
   function activateTab(tab) {
@@ -374,6 +521,7 @@ function renderBots(items) {
     myBotsTabBtn.classList.toggle("active", tab === "my");
     allBotsTabBtn.classList.toggle("active", tab === "all");
     favoritesBotsTabBtn.classList.toggle("active", tab === "favorites");
+    followingBotsTabBtn.classList.toggle("active", tab === "following");
 
     applySearch();
   }
@@ -393,6 +541,7 @@ function renderBots(items) {
         story_description: bot.full_description || bot.story_description || bot.plot || "",
         system_prompt: bot.system_prompt || "",
         avatar: bot.avatar_url || "/img/icon.svg",
+        created_at: bot.created_at || null,
       }));
     } catch {
       myBotsData = [];
@@ -414,6 +563,7 @@ function renderBots(items) {
         story_description: bot.full_description || bot.story_description || bot.plot || "",
         system_prompt: bot.system_prompt || "",
         avatar: bot.avatar_url || "/img/icon.svg",
+        created_at: bot.created_at || null,
       }));
     } catch {
       allBotsData = [];
@@ -458,6 +608,11 @@ function renderBots(items) {
   myBotsTabBtn.addEventListener("click", () => activateTab("my"));
   allBotsTabBtn.addEventListener("click", () => activateTab("all"));
   favoritesBotsTabBtn.addEventListener("click", () => activateTab("favorites"));
+  followingBotsTabBtn.addEventListener("click", () => activateTab("following"));
+  botsSortSelect.addEventListener("change", () => {
+    currentSort = botsSortSelect.value || "new";
+    applySearch();
+  });
 
   (async () => {
     await loadMyChats();
@@ -466,6 +621,8 @@ function renderBots(items) {
     const tab = new URLSearchParams(window.location.search).get("tab");
     if (tab === "favorites") {
       activateTab("favorites");
+    } else if (tab === "following") {
+      activateTab("following");
     } else if (tab === "all") {
       activateTab("all");
     } else {

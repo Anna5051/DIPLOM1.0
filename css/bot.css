@@ -90,23 +90,27 @@ body {
 }
 
 .icon-btn {
-  border: 1px solid rgba(157, 121, 255, 0.34);
-  background: rgba(35, 30, 75, 0.72);
+  border: none !important;
+  background: transparent !important;
   color: #fff;
-  border-radius: 12px;
-  width: 42px;
-  height: 42px;
+  border-radius: 0;
+  width: 44px !important;
+  height: 44px !important;
   cursor: pointer;
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   transition:
     transform 0.18s ease,
-    background 0.18s ease,
-    border-color 0.18s ease;
+    color 0.18s ease,
+    opacity 0.18s ease;
 }
 
 .icon-btn:hover {
   transform: translateY(-1px);
-  background: rgba(54, 44, 105, 0.82);
-  border-color: rgba(202, 184, 255, 0.52);
+  color: #f3e8ff;
+  opacity: 0.95;
 }
 
 .profile-mini img {
@@ -256,33 +260,29 @@ body {
 }
 
 .favorite-btn {
-  width: 52px;
-  height: 52px;
-  border-radius: 15px;
-  border: 1px solid rgba(200, 182, 255, 0.28);
-  background: rgba(20, 17, 54, 0.72);
+  width: 40px;
+  height: 40px;
+  border-radius: 0;
+  border: none;
+  background: transparent;
   color: #f4efff;
-  font-size: 24px;
+  font-size: 31px;
   cursor: pointer;
   flex-shrink: 0;
   transition:
     transform 0.18s ease,
-    background 0.18s ease,
-    border-color 0.18s ease,
-    box-shadow 0.18s ease;
+    color 0.18s ease,
+    opacity 0.18s ease;
 }
 
 .favorite-btn:hover {
   transform: translateY(-1px);
-  background: rgba(62, 49, 120, 0.48);
-  border-color: rgba(226, 208, 255, 0.56);
-  box-shadow: 0 8px 18px rgba(26, 18, 70, 0.34);
+  color: #ffd2e2;
+  opacity: 0.96;
 }
 
 .favorite-btn.active {
   color: #ff7cae;
-  border-color: rgba(255, 136, 184, 0.6);
-  background: rgba(73, 20, 48, 0.76);
 }
 
 .favorite-icon {

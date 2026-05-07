@@ -44,8 +44,6 @@
           <button class="tag-chip" data-tag="anime">Аниме</button>
           <button class="tag-chip" data-tag="adventure">Приключения</button>
           <button class="tag-chip" data-tag="story">Истории</button>
-          <button class="tag-chip" data-tag="mature">18+</button>
-          <button class="tag-chip" data-tag="flirt">Флирт</button>
           <button class="tag-chip" data-tag="villain">Злодеи</button>
           <button class="tag-chip" data-tag="hero">Герои</button>
           <button class="tag-chip" data-tag="mystery">Мистика</button>
@@ -53,8 +51,6 @@
           <button class="tag-chip" data-tag="slowburn">Медленное развитие</button>
           <button class="tag-chip" data-tag="enemies">От ненависти до любви</button>
           <button class="tag-chip" data-tag="oc">Оригинальные персонажи</button>
-          <button class="tag-chip" data-tag="submissive">Сабмиссив</button>
-          <button class="tag-chip" data-tag="dominant">Доминант</button>
           <button class="tag-chip" data-tag="scenario">Сценарные</button>
           <button class="tag-chip" data-tag="male">Мужской POV</button>
           <button class="tag-chip" data-tag="female">Женский POV</button>
@@ -72,13 +68,8 @@
           <button class="tag-chip" data-tag="royalty">Королевские</button>
           <button class="tag-chip" data-tag="monster">Монстры</button>
           <button class="tag-chip" data-tag="assistant">Ассистенты</button>
-          <button class="tag-chip" data-tag="politics">Политика</button>
-          <button class="tag-chip" data-tag="religion">Религия</button>
           <button class="tag-chip" data-tag="beginning">Для новичков</button>
           <button class="tag-chip" data-tag="music">Музыкальные</button>
-          <button class="tag-chip" data-tag="wlw">WLW</button>
-          <button class="tag-chip" data-tag="mlm">MLM</button>
-          <button class="tag-chip" data-tag="poly">Полиамория</button>
         </div>
         <button type="button" class="tags-icon-btn" id="toggleTagsBtn" aria-label="Свернуть панель">▴</button>
       </div>
@@ -174,6 +165,28 @@
     let isAllTagsSelected = false;
     let quickFilter = "all";
     let isTagsCollapsed = false;
+    const FORBIDDEN_TAGS = new Set([
+      "18+",
+      "16+",
+      "mature",
+      "adult",
+      "nsfw",
+      "wlw",
+      "mlm",
+      "poly",
+      "polyamory",
+      "полиамория",
+      "submissive",
+      "dominant",
+      "сабмиссив",
+      "доминант",
+      "flirt",
+      "флирт",
+      "politics",
+      "religion",
+      "политика",
+      "религия",
+    ]);
 
     const savedAvatar =
       localStorage.getItem(`profileAvatar_${savedUser?.id || ""}`) ||
@@ -298,10 +311,12 @@
         .split(",")
         .map((tag) => tag.trim())
         .filter(Boolean)
+        .filter((tag) => !FORBIDDEN_TAGS.has(normalizeText(tag)))
         .slice(0, 4);
     }
 
     function translateTag(tag) {
+      const key = String(tag || "").trim().toLowerCase().replace(/\s+/g, "_");
       const map = {
         romance: "Романтика",
         drama: "Драма",
@@ -311,15 +326,52 @@
         anime: "Аниме",
         adventure: "Приключения",
         story: "Истории",
-        magic: "Фэнтези",
-        mystery: "Тёмные сюжеты",
-        villain: "Тёмные сюжеты",
-        hero: "Ролевые сценарии",
-        oc: "Ролевые сценарии",
-        "sci-fi": "Истории",
+        villain: "Злодеи",
+        hero: "Герои",
+        mystery: "Мистика",
+        magic: "Магия",
+        slowburn: "Медленное развитие",
+        enemies: "От ненависти до любви",
+        oc: "Оригинальные персонажи",
+        scenario: "Сценарные",
+        male: "Мужской POV",
+        female: "Женский POV",
+        nonhuman: "Нелюди",
+        historical: "Исторические",
+        school: "Школьные",
+        office: "Офисные",
+        mafia: "Мафия",
+        detective: "Детектив",
+        vampire: "Вампиры",
+        robot: "Роботы",
+        scifi: "Научная фантастика",
+        "sci-fi": "Научная фантастика",
+        comedy: "Комедия",
+        angst: "Ангст",
+        royalty: "Королевские",
+        monster: "Монстры",
+        assistant: "Ассистенты",
+        beginning: "Для новичков",
+        music: "Музыкальные",
+        cyberpunk: "Киберпанк",
+        analytics: "Аналитика",
+        street: "Уличные сюжеты",
+        space: "Космос",
+        command: "Командование",
+        tactical: "Тактика",
+        engineering: "Инженерия",
+        logic: "Логика",
+        gothic: "Готика",
+        history: "Исторические",
+        archive: "Архивные",
+        scholar: "Ученые",
+        nature: "Природа",
+        soft: "Мягкий стиль",
+        city: "Городские",
+        slice_of_life: "Повседневность",
+        ru: "Русский",
       };
-      const normalized = String(tag || "").trim().toLowerCase();
-      return map[normalized] || tag;
+      return map[key] || tag;
     }
 
     function isTagSelected(tag) {

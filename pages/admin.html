@@ -7,6 +7,7 @@
     <link rel="stylesheet" href="/css/general.css" />
     <link rel="stylesheet" href="/css/admin.css" />
     <script src="/js/notifications.js" defer></script>
+    <script src="/js/siteDialogs.js" defer></script>
   </head>
   <body>
     <header class="topbar">
@@ -230,7 +231,16 @@
           card
             .querySelector(".delete-user-btn")
             .addEventListener("click", async () => {
-              if (!confirm(`Удалить пользователя ${user.username}?`)) return;
+              const shouldDeleteUser = await siteConfirm(
+                `Удалить пользователя ${user.username}?`,
+                {
+                  title: "Подтверждение удаления",
+                  confirmText: "Удалить",
+                  cancelText: "Отмена",
+                  danger: true,
+                },
+              );
+              if (!shouldDeleteUser) return;
 
               try {
                 const res = await fetch(
@@ -351,7 +361,13 @@
           card
             .querySelector(".delete-bot-btn")
             .addEventListener("click", async () => {
-              if (!confirm(`Удалить бота ${bot.name}?`)) return;
+              const shouldDeleteBot = await siteConfirm(`Удалить бота ${bot.name}?`, {
+                title: "Подтверждение удаления",
+                confirmText: "Удалить",
+                cancelText: "Отмена",
+                danger: true,
+              });
+              if (!shouldDeleteBot) return;
 
               try {
                 const res = await fetch(
@@ -431,7 +447,13 @@
           card
             .querySelector(".delete-chat-btn")
             .addEventListener("click", async () => {
-              if (!confirm(`Удалить чат #${chat.id}?`)) return;
+              const shouldDeleteChat = await siteConfirm(`Удалить чат #${chat.id}?`, {
+                title: "Подтверждение удаления",
+                confirmText: "Удалить",
+                cancelText: "Отмена",
+                danger: true,
+              });
+              if (!shouldDeleteChat) return;
 
               try {
                 const res = await fetch(

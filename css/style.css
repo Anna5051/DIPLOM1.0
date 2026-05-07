@@ -129,9 +129,13 @@ nav {
 }
 
 .btn-outline {
-  border: 1px solid rgba(146, 180, 255, 0.95);
-  background: rgba(84, 101, 214, 0.15);
-  box-shadow: 0 0 20px rgba(113, 146, 255, 0.15);
+  border: 1px solid rgba(180, 138, 255, 0.8);
+  background: linear-gradient(
+    90deg,
+    rgba(78, 95, 224, 0.75),
+    rgba(157, 89, 255, 0.75)
+  );
+  box-shadow: 0 0 20px rgba(157, 89, 255, 0.2);
 }
 
 .btn-fill {
@@ -162,6 +166,115 @@ nav {
 
 .features {
   padding: 30px 0 110px;
+}
+
+.info-sections {
+  padding: 0 0 70px;
+}
+
+.info-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.info-card {
+  border: 1px solid rgba(190, 200, 255, 0.22);
+  border-radius: 16px;
+  padding: 16px;
+  background: linear-gradient(
+    180deg,
+    rgba(255, 255, 255, 0.07),
+    rgba(255, 255, 255, 0.02)
+  );
+}
+
+.info-card h3 {
+  margin: 0 0 8px;
+  color: #fff;
+  font-size: 20px;
+}
+
+.info-card p {
+  margin: 0;
+  color: rgba(255, 255, 255, 0.88);
+  line-height: 1.45;
+  font-size: 15px;
+}
+
+.landing-footer {
+  border-top: 1px solid rgba(194, 173, 255, 0.22);
+  background: rgba(10, 10, 32, 0.55);
+  backdrop-filter: blur(6px);
+  padding: 22px 0 28px;
+}
+
+.footer-content {
+  display: flex;
+  justify-content: space-between;
+  gap: 30px;
+  align-items: flex-start;
+}
+
+.footer-brand-block {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.footer-brand {
+  color: #fff;
+  text-decoration: none;
+  font-size: 38px;
+  font-weight: 700;
+}
+
+.footer-socials {
+  display: flex;
+  gap: 8px;
+}
+
+.footer-social {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  text-decoration: none;
+  color: #fff;
+  font-size: 18px;
+  border: 1px solid rgba(181, 210, 255, 0.45);
+  background: linear-gradient(135deg, #2a7adf, #2cb6d5);
+}
+
+.footer-links {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(180px, 1fr));
+  gap: 30px;
+}
+
+.footer-col {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.footer-col h4 {
+  margin: 0 0 4px;
+  color: #fff;
+  font-size: 18px;
+}
+
+.footer-col a {
+  color: rgba(255, 255, 255, 0.86);
+  text-decoration: none;
+  font-size: 14px;
+}
+
+.footer-col a:hover {
+  color: #fff;
+  text-decoration: underline;
 }
 
 .features h2 {
@@ -303,5 +416,22 @@ nav {
 
   .card p {
     font-size: 17px;
+  }
+
+  .info-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .footer-content {
+    flex-direction: column;
+  }
+
+  .footer-links {
+    grid-template-columns: 1fr;
+    gap: 16px;
+  }
+
+  .footer-brand {
+    font-size: 30px;
   }
 }
