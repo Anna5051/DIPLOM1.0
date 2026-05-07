@@ -39,19 +39,17 @@ function buildSystemPrompt(botSystemPrompt, personaPrompt, botName) {
       "Ответ должен быть обычно 6-12 предложений (или больше, если сцена этого требует), а не односложной фразой.",
       "Давай детальную атмосферу: телесные реакции персонажа, мимику, голос, темп, детали окружения.",
       "Сохраняй атмосферу, развивай сцену и добавляй естественную динамику диалога.",
-      "Пиши от первого лица персонажа: используй 'я/мне/мой'.",
-      "Запрещен рассказ о себе в третьем лице (например: 'она', имя персонажа как подлежащее действий персонажа).",
+      "Пиши строго в третьем лице: персонаж описывается как 'он/она' или по имени.",
+      "Не переключайся на первое лицо персонажа ('я/мне/мой').",
       "Ты генерируешь ТОЛЬКО реплику и действия персонажа, но НЕ пользователя.",
       "Строго запрещено описывать мысли, эмоции, слова и действия пользователя как свершившийся факт.",
       "Запрещены конструкции вида: 'ты сказала', 'ты сделал', 'ты подошел', 'ты улыбнулась', 'пользователь сделал'.",
       "Если нужно отреагировать на пользователя, ссылайся только на уже написанное им сообщение без дописывания новых действий.",
       "Можно описывать только реакцию персонажа на уже сказанное пользователем и предлагать пользователю выбор.",
       "Не вставляй реплики за пользователя и не дописывай продолжение его фраз.",
-      "Хороший формат: 1) короткое атмосферное действие персонажа, 2) выразительная речь персонажа, 3) эмоциональный хвост сцены.",
-      "Структура ответа ОБЯЗАТЕЛЬНА и всегда такая:",
-      "1) первая строка: *действие/реакция от первого лица*",
-      '2) вторая строка: "реплика персонажа"',
-      "3) третья строка: *короткая эмоциональная реакция/намерение*",
+      "Пиши связным естественным текстом: 4-8 осмысленных предложений, без искусственного шаблона.",
+      "Если добавляешь действия в *...*, они должны быть логичными и простыми, без вычурных метафор.",
+      "Не добавляй бессмысленный 'красивый хвост' в конце ответа.",
       "Соблюдай нормы русского языка: орфография, пунктуация, согласование слов, естественные формулировки.",
       "Если пользователь не просил иначе, отвечай на русском.",
       "Не выдумывай случайные факты, если их нет в сценарии или истории чата.",
@@ -218,6 +216,36 @@ async function requestOllamaChat(model, messages, optionOverrides = {}) {
   }
 }
 
+async function polishRussianReply(model, baseMessages, draftReply, samplingOptions = {}) {
+  const draft = String(draftReply || "").trim();
+  if (!draft) return draft;
+
+  const polishInstruction = [
+    "Отредактируй текст как литературный редактор, сохранив исходный смысл и атмосферу.",
+    "Исправь русский язык: орфографию, пунктуацию, согласование и стилистику.",
+    "Убери неестественные и бессмысленные формулировки, случайные слова и ломаные конструкции.",
+    "Не добавляй новых фактов и событий.",
+    "Не пиши за пользователя и не описывай его действия как свершившийся факт.",
+    "Сохрани формат ответа (действие/реплика/эмоциональный хвост), если он уже есть.",
+    "Верни только итоговый отредактированный текст.",
+  ].join("\n");
+
+  return requestOllamaChat(
+    model,
+    [
+      ...baseMessages,
+      { role: "assistant", content: draft },
+      { role: "user", content: polishInstruction },
+    ],
+    {
+      ...samplingOptions,
+      temperature: Math.max(0.2, OLLAMA_TEMPERATURE - 0.15),
+      top_p: Math.max(0.72, OLLAMA_TOP_P - 0.08),
+      repeat_penalty: Math.max(1.05, OLLAMA_REPEAT_PENALTY),
+    },
+  );
+}
+
 function containsUserAgencyViolation(text, personaName = "") {
   const value = String(text || "").toLowerCase();
   if (!value.trim()) return false;
@@ -226,8 +254,10 @@ function containsUserAgencyViolation(text, personaName = "") {
 
   const patterns = [
     /\bты\s+(сказал|сказала|сделал|сделала|улыбнул[а-я]*|подош[её]л|подошла|взял|взяла|крикнул|крикнула|ответил|ответила|почувствовал|почувствовала)\b/i,
+    /\bты\s+(поднял[аи]?сь?|поднялся|поднялась|смотрел[аи]?|смотрела|дернул[аи]?|дернула|покраснел[аи]?|дрожал[аи]?|замолчал[аи]?|отвернул[аи]?сь?|вздохнул[аи]?|вздохнула)\b/i,
     /\bпользователь\s+(сказал|сказала|сделал|сделала|подош[её]л|подошла|улыбнул[а-я]*)\b/i,
     /\b(?:она|он)\s+(сказал|сказала|сделал|сделала|начала|начал|пош[её]л|пошла|атаковал[а]?|ударил[а]?|отступил[а]?)\b/i,
+    /\bтво(?:й|я|и|ё)\s+(голос|взгляд|щеки|щёки|лицо|тело|рук[аи]|пальц[аы]|глаз[а]|губ[ы])\b/i,
   ];
   const hasGenericViolation = patterns.some((pattern) => pattern.test(value));
 
@@ -252,32 +282,90 @@ function hasPoorRussianQuality(text) {
   return sentenceCount < 3;
 }
 
-function hasThirdPersonSelfReference(text, botName) {
+function hasFirstPersonSelfReference(text) {
   const value = String(text || "");
   const lower = value.toLowerCase();
-  const lowerBotName = String(botName || "").trim().toLowerCase();
-
-  const selfByNamePattern = lowerBotName
-    ? new RegExp(`\\b${lowerBotName.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b`, "i")
-    : null;
-  const mentionsSelfByName = selfByNamePattern ? selfByNamePattern.test(lower) : false;
-  const hasThirdPersonPronouns = /\b(она|он|ей|ему|её|его|ею)\b/i.test(lower);
-  if (mentionsSelfByName) return true;
-  return hasThirdPersonPronouns;
+  return /\b(я|мне|меня|мой|моя|моё|мои|мною|обо мне)\b/i.test(lower);
 }
 
 function hasBadRoleplayStructure(text) {
   const value = String(text || "").trim();
   if (!value) return true;
 
-  const lines = value
-    .split(/\n+/)
+  const sentenceCount = value
+    .split(/[.!?]+/)
     .map((line) => line.trim())
+    .filter(Boolean).length;
+  if (sentenceCount < 2) return true;
+  return false;
+}
+
+function hasLogicalFlowIssues(text) {
+  const value = String(text || "").trim();
+  if (!value) return true;
+
+  const sentences = value
+    .split(/[.!?]+/)
+    .map((s) => s.trim())
     .filter(Boolean);
-  const hasActionLike = lines.some((line) => line.startsWith("*") && line.endsWith("*"));
-  const hasQuoteLike = /["«][^"»]+["»]/.test(value);
-  /* Не требуем ровно 3 строки — иначе модель часто «проваливается» в один и тот же запасной шаблон. */
-  return lines.length < 3 || !hasActionLike || !hasQuoteLike;
+
+  // Повтор одной и той же длинной мысли в ответе = плохая связность.
+  const normalized = sentences.map((s) =>
+    s
+      .toLowerCase()
+      .replace(/[^\p{L}\p{N}\s]/gu, " ")
+      .replace(/\s+/g, " ")
+      .trim(),
+  );
+  const seen = new Set();
+  for (const sentence of normalized) {
+    if (sentence.length < 40) continue;
+    if (seen.has(sentence)) return true;
+    seen.add(sentence);
+  }
+
+  return false;
+}
+
+function getLastUserMessageFromHistory(history = []) {
+  for (let i = history.length - 1; i >= 0; i -= 1) {
+    const msg = history[i];
+    if (msg && msg.role === "user" && String(msg.content || "").trim()) {
+      return String(msg.content || "").trim();
+    }
+  }
+  return "";
+}
+
+function normalizeForDuplicateCheck(text) {
+  return String(text || "")
+    .toLowerCase()
+    .replace(/[^\p{L}\p{N}\s]/gu, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function isNearDuplicateOfRecentAssistant(text, history = []) {
+  const candidate = normalizeForDuplicateCheck(text);
+  if (!candidate || candidate.length < 40) return false;
+
+  const recentAssistantMessages = history
+    .filter((m) => m && m.role === "assistant")
+    .slice(-3)
+    .map((m) => normalizeForDuplicateCheck(m.content))
+    .filter(Boolean);
+
+  if (!recentAssistantMessages.length) return false;
+
+  return recentAssistantMessages.some((prev) => {
+    if (!prev) return false;
+    if (candidate === prev) return true;
+    if (candidate.includes(prev) || prev.includes(candidate)) {
+      const ratio = Math.min(candidate.length, prev.length) / Math.max(candidate.length, prev.length);
+      return ratio > 0.82;
+    }
+    return false;
+  });
 }
 
 function buildHardSafeFallbackReply() {
@@ -288,12 +376,14 @@ function buildHardSafeFallbackReply() {
   ].join("\n");
 }
 
-function isReplyAcceptable(text, botName, personaName) {
+function isReplyAcceptable(text, botName, personaName, history = []) {
   return (
     !containsUserAgencyViolation(text, personaName) &&
-    !hasThirdPersonSelfReference(text, botName) &&
+    !hasFirstPersonSelfReference(text) &&
     !hasBadRoleplayStructure(text) &&
-    !hasPoorRussianQuality(text)
+    !hasLogicalFlowIssues(text) &&
+    !hasPoorRussianQuality(text) &&
+    !isNearDuplicateOfRecentAssistant(text, history)
   );
 }
 
@@ -310,18 +400,23 @@ async function enforceReplyQuality(
 
   while (
     attempts < MAX_REPLY_REWRITE_ATTEMPTS &&
-    !isReplyAcceptable(currentReply, botName, personaName)
+    !isReplyAcceptable(currentReply, botName, personaName, baseMessages)
   ) {
+    const lastUserMessage = getLastUserMessageFromHistory(baseMessages);
     const rewriteInstruction = [
       "Перепиши ответ строго по правилам.",
-      "1) Пиши ТОЛЬКО от первого лица персонажа: я, мне, мой; не используй он/она о себе и не ставь своё имя как подлежащее.",
+      "1) Пиши ТОЛЬКО в третьем лице: персонаж как 'он/она' или по имени; не используй 'я/мне/мой'.",
       "2) Не пиши за пользователя и не описывай его действия как факт.",
       `2.1) Не используй имя персоны пользователя "${String(personaName || "").trim()}" в связке с глаголами действий.`,
-      "3) Формат ровно 3 строки:",
-      "   *действие/реакция от первого лица*",
-      '   "реплика персонажа"',
-      "   *эмоциональная реакция/намерение*",
+      "3) Формат: связный естественный текст на русском, без обязательного шаблона в 3 строки.",
+      `3.1) Обязательно дай прямую реакцию на последнюю реплику пользователя: "${lastUserMessage || "..."}.`,
+      "3.2) Первые 1-2 предложения должны логически отвечать именно на неё.",
       "4) Исправь русский язык: орфография, пунктуация, логика.",
+      "4.1) Убери корявые и случайные словосочетания; текст должен читаться естественно для носителя русского.",
+      "4.2) Не повторяй дословно и почти дословно предыдущие реплики персонажа.",
+      "4.3) Полный запрет описывать действия/эмоции/состояние пользователя (включая конструкции с 'ты...' и 'твой/твоя/...').",
+      "4.4) Запрещены вычурные, бессмысленные или случайные метафоры в финале.",
+      "4.5) Запрещено повторять одну и ту же длинную фразу дважды в одном ответе.",
       "5) Сохрани атмосферу сцены и характер персонажа.",
       "6) Верни только итоговый ответ без пояснений.",
     ].join("\n");
@@ -338,12 +433,16 @@ async function enforceReplyQuality(
     attempts += 1;
   }
 
-  if (!isReplyAcceptable(currentReply, botName, personaName)) {
+  if (!isReplyAcceptable(currentReply, botName, personaName, baseMessages)) {
+    const lastUserMessage = getLastUserMessageFromHistory(baseMessages);
     const variantHint = [
       "Сгенерируй новый вариант ответа на последнюю реплику пользователя.",
+      `Последняя реплика пользователя: "${lastUserMessage || "..."}".`,
+      "Сначала отреагируй на неё по смыслу, затем развивай сцену.",
       "Другие слова, образы и детали — не копируй и не перефразируй дословно предыдущие черновики.",
-      "Формат: минимум 3 строки — *действие от первого лица*, реплика в кавычках, затем *короткое действие или эмоция*.",
-      "Только я/мне о себе; не пиши за пользователя.",
+      "Формат: обычное связное повествование в 3-м лице, без обязательного деления на 3 строки.",
+      "Только третье лицо о персонаже; не пиши за пользователя.",
+      "Концовка должна быть логичным продолжением сцены, без бессмыслицы.",
       "Верни только текст ответа.",
     ].join("\n");
 
@@ -364,22 +463,8 @@ async function enforceReplyQuality(
       },
     );
     const refined = String(fresh || "").trim();
-    if (isReplyAcceptable(refined, botName, personaName)) {
+    if (isReplyAcceptable(refined, botName, personaName, baseMessages)) {
       return refined;
-    }
-    if (
-      refined.length >= MIN_BOT_REPLY_CHARS &&
-      !containsUserAgencyViolation(refined, personaName) &&
-      !hasThirdPersonSelfReference(refined, botName)
-    ) {
-      return refined;
-    }
-    if (
-      currentReply.length >= MIN_BOT_REPLY_CHARS &&
-      !containsUserAgencyViolation(currentReply, personaName) &&
-      !hasThirdPersonSelfReference(currentReply, botName)
-    ) {
-      return currentReply;
     }
     return buildHardSafeFallbackReply();
   }
@@ -407,6 +492,7 @@ async function generateBotReply({
 
   try {
     let reply = await requestOllamaChat(OLLAMA_MODEL, messages, samplingOptions);
+    reply = await polishRussianReply(OLLAMA_MODEL, messages, reply, samplingOptions);
     reply = await enforceReplyQuality(
       OLLAMA_MODEL,
       messages,
@@ -415,7 +501,7 @@ async function generateBotReply({
       personaName,
       samplingOptions,
     );
-    if (isReplyAcceptable(reply, botName, personaName)) {
+    if (isReplyAcceptable(reply, botName, personaName, messages)) {
       return reply;
     }
 
@@ -433,10 +519,16 @@ async function generateBotReply({
     ];
 
     const expandedDraft = await requestOllamaChat(OLLAMA_MODEL, expansionMessages, samplingOptions);
-    const expanded = await enforceReplyQuality(
+    const polishedExpandedDraft = await polishRussianReply(
       OLLAMA_MODEL,
       messages,
       expandedDraft,
+      samplingOptions,
+    );
+    const expanded = await enforceReplyQuality(
+      OLLAMA_MODEL,
+      messages,
+      polishedExpandedDraft,
       botName,
       personaName,
       samplingOptions,
@@ -448,6 +540,12 @@ async function generateBotReply({
     }
 
     let fallbackReply = await requestOllamaChat(OLLAMA_FALLBACK_MODEL, messages, samplingOptions);
+    fallbackReply = await polishRussianReply(
+      OLLAMA_FALLBACK_MODEL,
+      messages,
+      fallbackReply,
+      samplingOptions,
+    );
     fallbackReply = await enforceReplyQuality(
       OLLAMA_FALLBACK_MODEL,
       messages,
@@ -456,7 +554,7 @@ async function generateBotReply({
       personaName,
       samplingOptions,
     );
-    if (isReplyAcceptable(fallbackReply, botName, personaName)) {
+    if (isReplyAcceptable(fallbackReply, botName, personaName, messages)) {
       return fallbackReply;
     }
 
@@ -477,10 +575,16 @@ async function generateBotReply({
       fallbackExpansionMessages,
       samplingOptions,
     );
-    const fallbackExpandedChecked = await enforceReplyQuality(
+    const polishedFallbackExpanded = await polishRussianReply(
       OLLAMA_FALLBACK_MODEL,
       messages,
       fallbackExpanded,
+      samplingOptions,
+    );
+    const fallbackExpandedChecked = await enforceReplyQuality(
+      OLLAMA_FALLBACK_MODEL,
+      messages,
+      polishedFallbackExpanded,
       botName,
       personaName,
       samplingOptions,

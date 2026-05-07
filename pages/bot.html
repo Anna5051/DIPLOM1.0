@@ -51,24 +51,50 @@
               <p class="bot-subtitle" id="botSubtitle">Персонаж</p>
               <p class="bot-author">
                 Автор:
-                <span id="botAuthor">...</span>
+                <a id="botAuthor" class="bot-author-link" href="/pages/profile.html">...</a>
               </p>
             </div>
 
-            <button
-              class="favorite-btn"
-              type="button"
-              aria-label="Добавить в избранное"
-              id="favoriteBtn"
-              title="Добавить в избранное"
-            >
-              <span class="favorite-icon">♡</span>
-            </button>
+            <div class="bot-title-actions">
+              <button
+                class="bot-edit-btn"
+                type="button"
+                id="editBotBtn"
+                style="display: none"
+                aria-label="Редактировать персонажа"
+                title="Редактировать персонажа"
+              >
+                ✎
+              </button>
+              <button
+                class="favorite-btn"
+                type="button"
+                aria-label="Добавить в избранное"
+                id="favoriteBtn"
+                title="Добавить в избранное"
+              >
+                <span class="favorite-icon">♡</span>
+              </button>
+            </div>
           </div>
 
           <div class="bot-short-description" id="botShortDescription">
             Загрузка описания...
           </div>
+          <div class="bot-short-actions">
+            <button type="button" class="bot-read-more-btn" id="toggleDescriptionBtn">
+              Читать полностью
+            </button>
+          </div>
+
+          <section class="bot-tags-inline">
+            <div class="bot-tags-head">
+              <h3>Теги</h3>
+            </div>
+            <div class="tags-list" id="tagsList">
+              <span class="tag">Нет тегов</span>
+            </div>
+          </section>
 
           <div class="bot-main-actions">
             <div class="bot-actions-top-row">
@@ -94,14 +120,6 @@
                 <span class="persona-playing-chevron" aria-hidden="true"
                   >›</span
                 >
-              </button>
-              <button
-                class="bot-edit-btn"
-                type="button"
-                id="editBotBtn"
-                style="display: none"
-              >
-                Редактировать
               </button>
             </div>
 
@@ -157,20 +175,19 @@
             </div>
           </div>
 
-          <section class="bot-tags-inline">
-            <div class="bot-tags-head">
-              <h3>Теги</h3>
+          <div class="bot-meta-row">
+            <div class="bot-meta-badges" id="botMetaBadges" aria-label="Метаданные персонажа">
+              <span class="meta-badge" id="metaCreated">Создано: —</span>
+              <span class="meta-badge" id="metaUpdated">Обновлено: —</span>
+              <span class="meta-badge" id="metaPublished">Статус: —</span>
             </div>
-            <div class="tags-list" id="tagsList">
-              <span class="tag">Нет тегов</span>
-            </div>
-          </section>
+          </div>
         </div>
       </section>
 
       <section class="story-section">
         <div class="story-left">
-          <h2>Описание сюжета</h2>
+          <h2>Краткое содержание</h2>
 
           <div class="story-text" id="storyBox">Загрузка сюжета...</div>
 
@@ -283,6 +300,10 @@
       const botShortDescription = document.getElementById(
         "botShortDescription",
       );
+      const toggleDescriptionBtn = document.getElementById("toggleDescriptionBtn");
+      const metaCreated = document.getElementById("metaCreated");
+      const metaUpdated = document.getElementById("metaUpdated");
+      const metaPublished = document.getElementById("metaPublished");
       const storyBox = document.getElementById("storyBox");
       const tagsList = document.getElementById("tagsList");
       const accordionPlot = document.getElementById("accordionPlot");
@@ -326,6 +347,8 @@
 
       let storyExpanded = false;
       let fullStoryText = "";
+      let shortDescriptionExpanded = false;
+      let fullDescriptionText = "";
       let currentBot = null;
       let personas = [];
       let activePersona = null;
@@ -442,6 +465,76 @@
         });
       }
 
+      function formatRelativeRu(value) {
+        if (!value) return "—";
+        const date = new Date(value);
+        if (Number.isNaN(date.getTime())) return "—";
+
+        const diffMs = Date.now() - date.getTime();
+        const future = diffMs < 0;
+        const absSec = Math.round(Math.abs(diffMs) / 1000);
+        const absMin = Math.round(absSec / 60);
+        const absHours = Math.round(absMin / 60);
+        const absDays = Math.round(absHours / 24);
+
+        const suffix = future ? "через " : "";
+        const postfix = future ? "" : " назад";
+
+        if (absSec < 60) return future ? "через несколько секунд" : "только что";
+        if (absMin < 60) return `${suffix}${absMin} мин${postfix}`;
+        if (absHours < 24) return `${suffix}${absHours} ч${postfix}`;
+        if (absDays < 30) return `${suffix}${absDays} дн${postfix}`;
+
+        return date.toLocaleDateString("ru-RU");
+      }
+
+      function updateMetaBadges(bot) {
+        if (metaCreated) {
+          metaCreated.textContent = `Создано: ${formatRelativeRu(bot?.created_at)}`;
+        }
+        if (metaUpdated) {
+          metaUpdated.textContent = `Обновлено: ${formatRelativeRu(bot?.updated_at || bot?.created_at)}`;
+        }
+        if (metaPublished) {
+          const published = String(bot?.visibility || "").toLowerCase() === "public";
+          metaPublished.textContent = `Статус: ${published ? "опубликован" : "скрыт"}`;
+        }
+      }
+
+      function renderShortDescription() {
+        if (!botShortDescription) return;
+        const text = normalizeStoryText(fullDescriptionText);
+        const maxChars = 420;
+
+        if (!text || text === "Описание отсутствует") {
+          botShortDescription.innerHTML = "Описание сюжета отсутствует";
+          if (toggleDescriptionBtn) toggleDescriptionBtn.style.display = "none";
+          return;
+        }
+
+        if (text.length <= maxChars) {
+          botShortDescription.innerHTML = escapeHtml(text).replace(/\n/g, "<br>");
+          if (toggleDescriptionBtn) toggleDescriptionBtn.style.display = "none";
+          return;
+        }
+
+        if (shortDescriptionExpanded) {
+          botShortDescription.innerHTML = escapeHtml(text).replace(/\n/g, "<br>");
+          if (toggleDescriptionBtn) {
+            toggleDescriptionBtn.style.display = "inline-flex";
+            toggleDescriptionBtn.textContent = "Свернуть";
+          }
+          return;
+        }
+
+        botShortDescription.innerHTML =
+          escapeHtml(text.slice(0, maxChars)).replace(/\n/g, "<br>") + "...";
+        if (toggleDescriptionBtn) {
+          toggleDescriptionBtn.style.display = "inline-flex";
+          toggleDescriptionBtn.textContent = "Читать полностью";
+        }
+      }
+
       function setCollapsedStory(text) {
         fullStoryText = normalizeStoryText(text);
 
@@ -469,6 +562,13 @@
           storyExpanded = true;
         }
       });
+
+      if (toggleDescriptionBtn) {
+        toggleDescriptionBtn.addEventListener("click", () => {
+          shortDescriptionExpanded = !shortDescriptionExpanded;
+          renderShortDescription();
+        });
+      }
 
       function isBotOwner(bot) {
         if (!savedUser?.id || !bot) return false;
@@ -736,16 +836,26 @@
 
           botName.textContent = bot.name || "Без имени";
           botSubtitle.textContent = "Персонаж";
-          botAuthor.textContent = bot.author_name || "Неизвестно";
+          const authorName = bot.author_name || "Неизвестно";
+          const authorId = bot.creator_id ?? bot.author_id ?? "";
+          botAuthor.textContent = authorName;
+          botAuthor.href = authorId
+            ? `/pages/profile.html?authorId=${encodeURIComponent(authorId)}&username=${encodeURIComponent(authorName)}`
+            : `/pages/profile.html?username=${encodeURIComponent(authorName)}`;
 
           setImageWithFallback(botAvatar, bot.avatar_url);
 
-          botShortDescription.textContent =
-            bot.short_description || "Краткое описание отсутствует";
-
           const promptMetadata = extractPromptMetadata(bot.system_prompt);
           const scenarioText = promptMetadata?.scenario || "";
-          setCollapsedStory(scenarioText || "Описание сюжета отсутствует");
+          fullDescriptionText =
+            normalizeStoryText(bot.short_description || scenarioText || "").trim();
+          shortDescriptionExpanded = false;
+          renderShortDescription();
+          updateMetaBadges(bot);
+          const shortStoryText = (bot.short_description || "").trim();
+          setCollapsedStory(
+            shortStoryText || scenarioText || "Краткое содержание отсутствует",
+          );
           setTags(bot.tags);
 accordionPlot.innerHTML = escapeHtml(
   normalizeStoryText(scenarioText || "Сюжет не указан"),

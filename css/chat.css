@@ -196,7 +196,7 @@ body {
 /* ---------- BOT INTRO ---------- */
 
 .bot-intro {
-  display: flex;
+  display: none;
   gap: 14px;
   margin-bottom: 26px;
   padding: 14px 16px;

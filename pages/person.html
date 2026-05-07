@@ -236,7 +236,7 @@
           </div>
 
           <div class="persona-info">
-            <span class="persona-tag">${escapeHtml(persona.role || "Без роли")}</span>
+            ${persona.role ? `<span class="persona-tag">${escapeHtml(persona.role)}</span>` : ""}
 
             <p class="persona-desc">
               ${escapeHtml(persona.description || "Описание отсутствует")}

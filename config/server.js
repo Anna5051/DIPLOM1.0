@@ -8,6 +8,37 @@ const bcrypt = require("bcryptjs");
 const db = require("./db");
 
 const app = express();
+let currentHttpServer = null;
+
+const AUTO_SHUTDOWN_ON_NO_CLIENTS = process.env.AUTO_SHUTDOWN_ON_NO_CLIENTS !== "0";
+const CLIENT_IDLE_SHUTDOWN_MS = Number(process.env.CLIENT_IDLE_SHUTDOWN_MS) || 15000;
+const activeClientTabs = new Map();
+let shutdownTimer = null;
+
+function clearShutdownTimer() {
+  if (!shutdownTimer) return;
+  clearTimeout(shutdownTimer);
+  shutdownTimer = null;
+}
+
+function scheduleShutdownIfNoClients() {
+  if (!AUTO_SHUTDOWN_ON_NO_CLIENTS) return;
+  if (activeClientTabs.size > 0) {
+    clearShutdownTimer();
+    return;
+  }
+  clearShutdownTimer();
+  shutdownTimer = setTimeout(() => {
+    if (activeClientTabs.size > 0) return;
+    console.log("Нет активных вкладок, останавливаю сервер...");
+    if (!currentHttpServer) {
+      process.exit(0);
+      return;
+    }
+    currentHttpServer.close(() => process.exit(0));
+    setTimeout(() => process.exit(0), 2500);
+  }, CLIENT_IDLE_SHUTDOWN_MS);
+}
 
 app.use(cors({ origin: "*" }));
 app.use(express.json({ limit: "50mb" }));
@@ -17,6 +48,23 @@ app.use(express.static(path.resolve(__dirname, "..")));
 
 app.get("/", (req, res) => {
   res.sendFile(path.resolve(__dirname, "../pages/index.html"));
+});
+
+app.post("/client-presence", (req, res) => {
+  const { action, tabId } = req.body || {};
+  const safeTabId = String(tabId || "").trim();
+  if (!safeTabId) {
+    return res.status(400).json({ message: "tabId обязателен" });
+  }
+
+  if (action === "open" || action === "heartbeat") {
+    activeClientTabs.set(safeTabId, Date.now());
+  } else if (action === "close") {
+    activeClientTabs.delete(safeTabId);
+  }
+
+  scheduleShutdownIfNoClients();
+  res.status(204).end();
 });
 
 /*проверка роли админа*/
@@ -89,6 +137,24 @@ function dbQuery(sql, params = []) {
       if (err) return reject(err);
       resolve(rows);
     });
+  });
+}
+
+function ensurePersonaRoleColumn() {
+  const sql = `
+    ALTER TABLE personas
+    ADD COLUMN role VARCHAR(120) NOT NULL DEFAULT '' AFTER name
+  `;
+
+  db.query(sql, (err) => {
+    if (!err) {
+      console.log("БД: добавлена колонка personas.role");
+      return;
+    }
+    if (err.code === "ER_DUP_FIELDNAME") {
+      return;
+    }
+    console.warn("БД: не удалось проверить/добавить personas.role —", err.message);
   });
 }
 
@@ -1951,6 +2017,7 @@ app.get("/personas/:userId", (req, res) => {
       id,
       user_id,
       name,
+      role,
       description,
       avatar_url,
       persona_prompt,
@@ -1978,6 +2045,7 @@ app.post("/persona", (req, res) => {
   const {
     user_id,
     name,
+    role,
     description,
     avatar_url,
     persona_prompt,
@@ -1996,6 +2064,7 @@ app.post("/persona", (req, res) => {
       (
         user_id,
         name,
+        role,
         description,
         avatar_url,
         persona_prompt,
@@ -2003,7 +2072,7 @@ app.post("/persona", (req, res) => {
         created_at,
         updated_at
       )
-      VALUES (?, ?, ?, ?, ?, ?, NOW(), NOW())
+      VALUES (?, ?, ?, ?, ?, ?, ?, NOW(), NOW())
     `;
 
     db.query(
@@ -2011,6 +2080,7 @@ app.post("/persona", (req, res) => {
       [
         user_id,
         name,
+        role || "",
         description,
         avatar_url || "",
         persona_prompt || "",
@@ -2056,6 +2126,7 @@ app.put("/persona/:id", (req, res) => {
   const {
     user_id,
     name,
+    role,
     description,
     avatar_url,
     persona_prompt,
@@ -2073,6 +2144,7 @@ app.put("/persona/:id", (req, res) => {
       UPDATE personas
       SET
         name = ?,
+        role = ?,
         description = ?,
         avatar_url = ?,
         persona_prompt = ?,
@@ -2085,6 +2157,7 @@ app.put("/persona/:id", (req, res) => {
       sql,
       [
         name,
+        role || "",
         description,
         avatar_url || "",
         persona_prompt || "",
@@ -2313,6 +2386,7 @@ const MAX_PORT_FALLBACK_SPAN = 50;
 
 function startHttpServer(port) {
   const server = http.createServer(app);
+  currentHttpServer = server;
 
   server.once("listening", () => {
     const localUrl = `http://localhost:${port}`;
@@ -2327,6 +2401,7 @@ function startHttpServer(port) {
         console.error("БД: ошибка —", dbErr.message);
       } else {
         console.log("БД: подключение установлено");
+        ensurePersonaRoleColumn();
       }
     });
   });
