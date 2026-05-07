@@ -94,7 +94,7 @@ nav {
 
 .auth-card h1 {
   text-align: center;
-  color: #e6c5ff;
+  color: #ffffff;
   font-size: 34px;
   font-weight: 700;
   margin-bottom: 28px;
@@ -179,6 +179,28 @@ nav {
 .btn-main:hover {
   transform: translateY(-2px);
   box-shadow: 0 0 26px rgba(157, 121, 255, 0.3);
+}
+
+.login-text {
+  margin: 14px 0 6px;
+  text-align: center;
+  color: #ffffff;
+  font-size: 14px;
+}
+
+.btn-second {
+  display: inline-flex;
+  align-self: center;
+  justify-content: center;
+  color: #7fb2ff;
+  text-decoration: none;
+  font-size: 15px;
+  font-weight: 600;
+  padding: 2px 8px;
+}
+
+.btn-second:hover {
+  text-decoration: underline;
 }
 
 @media (max-width: 768px) {
