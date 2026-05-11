@@ -54,6 +54,10 @@ function buildSystemPrompt(botSystemPrompt, personaPrompt, botName) {
       "Если пользователь не просил иначе, отвечай на русском.",
       "Не выдумывай случайные факты, если их нет в сценарии или истории чата.",
       "Не пиши бессвязные и противоречивые фразы; сохраняй причинно-следственную логику.",
+      "Контент только для широкой аудитории: без откровенных сексуальных сцен, порнографии, эротических подробностей телесных актов.",
+      "Без графического насилия, изнасилования, жестоких подробностей травм и калечения; без пропаганды наркотиков.",
+      "Если пользователь просит 18+ или откровенные подробности, вежливо откажись в образе персонажа и предложи безопасный поворот сцены.",
+      "Не используй нецензурную брань и грубые оскорбления по половому признаку; допустимы только лёгкие междометия вроде «блин», «чёрт», «капец», «ё-моё».",
     ].join("\n"),
   );
 
@@ -255,6 +259,8 @@ async function polishRussianReply(
     "Убери неестественные и бессмысленные формулировки, случайные слова и ломаные конструкции.",
     "Не добавляй новых фактов и событий.",
     "Не пиши за пользователя и не описывай его действия как свершившийся факт.",
+    "Убери откровенный сексуальный подтекст, порнографические и жестоко-насильственные подробности; оставь сцену безопасной для широкой аудитории.",
+    "Убери мат и тяжёлую брань: замени на нейтральные слова или лёгкие междометия («блин», «чёрт», «капец»), без новых оскорблений.",
     "Сохрани формат ответа (действие/реплика/эмоциональный хвост), если он уже есть.",
     "Верни только итоговый отредактированный текст.",
   ].join("\n");
@@ -274,6 +280,114 @@ async function polishRussianReply(
     },
     runtimeConfig,
   );
+}
+
+/** Явные маркеры 18+ / откровенного контента (RU + частые англ. вставки). */
+const ADULT_OR_EXPLICIT_PATTERNS = [
+  /\bпорно(?:графи[яи])?\b/i,
+  /\bэроти(?:к|чн)/i,
+  /\bоргазм/i,
+  /\bминет/i,
+  /\bкунилинг/i,
+  /\bмастурб/i,
+  /\bэрекц/i,
+  /\bэякуля/i,
+  /\bсперм/i,
+  /\bвагин/i,
+  /\bпенис/i,
+  /\bклитор/i,
+  /\bфистинг/i,
+  /\bизнасил/i,
+  /\bинцест/i,
+  /\bпроститут/i,
+  /\bхентай/i,
+  /\bгуро\b/i,
+  /\bанальн/i,
+  /\bоральн[а-яё]*\s+секс/i,
+  /\bсекс\s*(?:игруш|сцен|чат|шоп|видео|услуг)/i,
+  /\bсекс\b/i,
+  /\bпорно(?:фильм|ролик|сайт|студи)/i,
+  /\bporno(?:graphy)?\b/i,
+  /\bnsfw\b/i,
+  /\b(?:blowjob|handjob|deepthroat)\b/i,
+  /\b(?:fuck(?:ing)?|cock|dick|pussy|cunt|cumshot)\b/i,
+];
+
+function containsAdultOrExplicitSignals(text) {
+  const value = String(text || "");
+  if (!value.trim()) return false;
+  return ADULT_OR_EXPLICIT_PATTERNS.some((re) => re.test(value));
+}
+
+/** Лёгкие замены вместо мата (порядок: сначала устойчивые фразы и длинные формы). */
+const MILD_EXCLAMATIONS = ["блин", "чёрт", "ё-моё", "капец", "ого", "ну и дела"];
+
+const PROFANITY_REPLACEMENT_RULES = [
+  { re: /\bпох[уе]й\b/giu, rep: "всё равно" },
+  { re: /\bпох[её]р\b/giu, rep: "всё равно" },
+  { re: /\bнах[уе]й\b/giu, rep: "нафиг" },
+  { re: /\bнахер\b/giu, rep: "нафиг" },
+  { re: /\bпиздец(?:а|у|ом|е)?\b/giu, rep: "капец" },
+  { re: /\bпиздёж\w*\b/giu, rep: "болтовня" },
+  { re: /\bпиздеж\w*\b/giu, rep: "болтовня" },
+  { re: /\bхуйн[яиюе]\w*\b/giu, rep: "ерунда" },
+  { re: /\bхуепл[ёе]т\w*\b/giu, rep: "болван" },
+  { re: /\bхуесос\w*\b/giu, rep: "болван" },
+  { re: /\bза[её]бал[а-яё]*\b/giu, rep: "достал" },
+  { re: /\bза[её]баш\w*\b/giu, rep: "достал" },
+  { re: /\bвы[её]бал[а-яё]*\b/giu, rep: "надул" },
+  { re: /\bразъ?[её]б\w*\b/giu, rep: "разнес" },
+  { re: /\bотъ?еб[а-яё]+\b/giu, rep: "отвязался" },
+  { re: /\bуеб[а-яё]+\b/giu, rep: "болван" },
+  { re: /\b[её]бан[а-яё]*\b/giu, rep: null },
+  { re: /\bмуд[аио][а-яё]*\b/giu, rep: null },
+  { re: /\bгондон\w*\b/giu, rep: "подлец" },
+  {
+    re: /\b(?:бляд(?:ь|и|ью|ей|ю|я|к|ский|ская|ское|ские|ским|ских|ского|скому|ство|ством|ства)|блят(?:ь|и|ская|ский|ское|ские|ским|ских|ского|скому))\w*\b/giu,
+    rep: null,
+  },
+  { re: /\bблять\b/giu, rep: null },
+  { re: /\bбля\b/giu, rep: null },
+  { re: /\bсука\b/giu, rep: null },
+  { re: /\bсуки\b/giu, rep: null },
+  { re: /\bсук(?:ой|е|у|ам|ами|ин)\b/giu, rep: null },
+  { re: /\bпизд[аеуюы]\b/giu, rep: null },
+  { re: /\bпизд[еио]\w{1,8}\b/giu, rep: null },
+  { re: /\bху[йеяию]\w{0,4}\b/giu, rep: null },
+  { re: /\bхуи\b/giu, rep: null },
+  { re: /\b(?:ох|ах)уен\w*\b/giu, rep: null },
+  { re: /\b(?:ох|ах)уел\w*\b/giu, rep: null },
+  { re: /\b(?:fuck(?:ing|ed|er)?|motherfuck\w*|shit(?:ty|ted)?|bitch(?:es)?|asshole|bullshit|crap)\b/giu, rep: null },
+  { re: /\b(?:damn|hell)\b/giu, rep: null },
+];
+
+function pickMild(offset) {
+  return MILD_EXCLAMATIONS[Math.abs(offset) % MILD_EXCLAMATIONS.length];
+}
+
+function softenProfanityInText(text) {
+  let out = String(text || "");
+  for (const rule of PROFANITY_REPLACEMENT_RULES) {
+    out = out.replace(rule.re, (...args) => {
+      const match = args[0];
+      const offset = args[args.length - 2];
+      if (typeof rule.rep === "string") return rule.rep;
+      const o = typeof offset === "number" ? offset : 0;
+      return pickMild(o + String(match).length);
+    });
+  }
+  return out;
+}
+
+/** Финальная очистка ответа пользователю (мат → лёгкие слова; несколько проходов на вложенные случаи). */
+function finalizeBotReplyText(text) {
+  let s = String(text || "").trim();
+  for (let i = 0; i < 5; i += 1) {
+    const next = softenProfanityInText(s);
+    if (next === s) break;
+    s = next;
+  }
+  return s;
 }
 
 function containsUserAgencyViolation(text, personaName = "") {
@@ -408,6 +522,7 @@ function buildHardSafeFallbackReply() {
 
 function isReplyAcceptable(text, botName, personaName, history = []) {
   return (
+    !containsAdultOrExplicitSignals(text) &&
     !containsUserAgencyViolation(text, personaName) &&
     !hasFirstPersonSelfReference(text) &&
     !hasBadRoleplayStructure(text) &&
@@ -448,6 +563,8 @@ async function enforceReplyQuality(
       "4.3) Полный запрет описывать действия/эмоции/состояние пользователя (включая конструкции с 'ты...' и 'твой/твоя/...').",
       "4.4) Запрещены вычурные, бессмысленные или случайные метафоры в финале.",
       "4.5) Запрещено повторять одну и ту же длинную фразу дважды в одном ответе.",
+      "4.6) Полностью убери откровенный секс, порнографию, жестокое насилие и любые 18+ подробности; замени безопасным поворотом сцены.",
+      "4.7) Убери мат и тяжёлую брань; вместо них — лёгкие междометия («блин», «чёрт», «капец»), без новых оскорблений.",
       "5) Сохрани атмосферу сцены и характер персонажа.",
       "6) Верни только итоговый ответ без пояснений.",
     ].join("\n");
@@ -474,6 +591,8 @@ async function enforceReplyQuality(
       "Другие слова, образы и детали — не копируй и не перефразируй дословно предыдущие черновики.",
       "Формат: обычное связное повествование в 3-м лице, без обязательного деления на 3 строки.",
       "Только третье лицо о персонаже; не пиши за пользователя.",
+      "Строго без откровенного секса, порнографии и графического насилия — только контент для широкой аудитории.",
+      "Без мата; эмоции передавай лёгкими словами («блин», «чёрт», «ого»).",
       "Концовка должна быть логичным продолжением сцены, без бессмыслицы.",
       "Верни только текст ответа.",
     ].join("\n");
@@ -544,7 +663,7 @@ async function generateBotReply({
       runtimeConfig,
     );
     if (isReplyAcceptable(reply, botName, personaName, messages)) {
-      return reply;
+      return finalizeBotReplyText(reply);
     }
 
     const expansionMessages = [
@@ -556,7 +675,7 @@ async function generateBotReply({
       {
         role: "user",
         content:
-          "Сделай ответ значительно более развернутым и атмосферным: добавь эмоции, реакцию персонажа, детали сцены и плавное развитие диалога. Не сокращай. Не добавляй текст и действия за пользователя.",
+          "Сделай ответ значительно более развернутым и атмосферным: добавь эмоции, реакцию персонажа, детали сцены и плавное развитие диалога. Не сокращай. Не добавляй текст и действия за пользователя. Без откровенного секса, порнографии и жестокого насилия. Без мата — только лёгкие междометия при необходимости.",
       },
     ];
 
@@ -582,7 +701,7 @@ async function generateBotReply({
       samplingOptions,
       runtimeConfig,
     );
-    return expanded;
+    return finalizeBotReplyText(expanded);
   } catch (primaryError) {
     if (usingProxy) {
       throw primaryError;
@@ -614,7 +733,7 @@ async function generateBotReply({
       runtimeConfig,
     );
     if (isReplyAcceptable(fallbackReply, botName, personaName, messages)) {
-      return fallbackReply;
+      return finalizeBotReplyText(fallbackReply);
     }
 
     const fallbackExpansionMessages = [
@@ -626,7 +745,7 @@ async function generateBotReply({
       {
         role: "user",
         content:
-          "Сделай ответ более длинным и выразительным: эмоции, действия персонажа, атмосфера, развитие сцены. Не пиши за пользователя и не описывай его действия как факт.",
+          "Сделай ответ более длинным и выразительным: эмоции, действия персонажа, атмосфера, развитие сцены. Не пиши за пользователя и не описывай его действия как факт. Без откровенного секса, порнографии и жестокого насилия. Без мата — только лёгкие междометия при необходимости.",
       },
     ];
     const fallbackExpanded = await requestOllamaChat(
@@ -651,7 +770,7 @@ async function generateBotReply({
       samplingOptions,
       runtimeConfig,
     );
-    return fallbackExpandedChecked;
+    return finalizeBotReplyText(fallbackExpandedChecked);
   }
 }
 
