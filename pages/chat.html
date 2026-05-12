@@ -352,6 +352,36 @@
         .trimStart();
     }
 
+    function clampSwipeVariantIndex(index, len) {
+      if (!Number.isFinite(len) || len < 1) return 0;
+      const n = Math.floor(Number(index)) || 0;
+      return Math.max(0, Math.min(len - 1, n));
+    }
+
+    function getBotSwipeVariants(message) {
+      if (!message || !Array.isArray(message._contentVariants)) return null;
+      if (message._contentVariants.length < 2) return null;
+      return message._contentVariants;
+    }
+
+    /** Текст ответа бота с учётом переключателя вариантов (после «другой вариант»). */
+    function getDisplayedBotMessageContent(message) {
+      if (!message) return "";
+      const variants = getBotSwipeVariants(message);
+      if (!variants) return normalizeChatMessageText(message.content || "");
+      const i = clampSwipeVariantIndex(message._variantIndex, variants.length);
+      return normalizeChatMessageText(String(variants[i] ?? message.content ?? ""));
+    }
+
+    function isSwipeVariantCommittedToServer(message) {
+      const variants = getBotSwipeVariants(message);
+      if (!variants) return true;
+      const i = clampSwipeVariantIndex(message._variantIndex, variants.length);
+      const shown = normalizeChatMessageText(String(variants[i] ?? ""));
+      const server = normalizeChatMessageText(String(message.content || ""));
+      return shown === server;
+    }
+
     function toPlainText(value) {
       const div = document.createElement("div");
       div.innerHTML = String(value || "");
@@ -809,6 +839,8 @@
       const idx = messageRows.findIndex((item) => Number(item.id) === messageId);
       if (idx === -1) return;
 
+      await commitPendingSwipeVariantsBeforeSend();
+
       messageRows[idx] = {
         ...messageRows[idx],
         _loading: true,
@@ -819,18 +851,28 @@
 
       try {
         const data = await regenerateMessageOnServer(messageId, signal, { swipe });
-        messageRows[idx] = data.reply;
+        let merged = { ...messageRows[idx], ...data.reply };
+        delete merged._loading;
+        if (!swipe) {
+          delete merged._contentVariants;
+          delete merged._variantIndex;
+        }
+        messageRows[idx] = merged;
 
         if (swipe) {
           const row = findMessageRow(messageId);
           const bubble = row?.querySelector(".message-bubble");
           const stack = row?.querySelector(".message-stack");
           if (bubble && stack) {
-            await animateBubbleSwipeReplace(bubble, data.reply.content);
+            await animateBubbleSwipeReplace(bubble, merged.content);
             const hdr = row.querySelector(".message-card-header-actions");
-            if (hdr) hdr.innerHTML = buildMessageHeaderAreaHtml(data.reply);
+            if (hdr) hdr.innerHTML = buildMessageHeaderAreaHtml(merged);
+            stack.querySelector(".message-variant-bar")?.remove();
             stack.querySelector(".message-actions--footer")?.remove();
-            bubble.insertAdjacentHTML("afterend", buildMessageFooterActions(data.reply));
+            bubble.insertAdjacentHTML(
+              "afterend",
+              `${buildMessageFooterActions(merged)}${buildMessageVariantBar(merged)}`,
+            );
           } else {
             rerenderMessages();
           }
@@ -943,7 +985,11 @@
       }
 
       editingMessageId = messageId;
-      const text = normalizeChatMessageText(target.content || "");
+      const st = String(target.sender_type || "").trim().toLowerCase();
+      const text =
+        st === "bot"
+          ? getDisplayedBotMessageContent(target)
+          : normalizeChatMessageText(target.content || "");
 
       bubble.classList.add("message-bubble--editing");
       bubble.replaceChildren();
@@ -989,7 +1035,7 @@
         const data = await updateMessageOnServer(messageId, trimmed);
         const idx = messageRows.findIndex((item) => Number(item.id) === messageId);
         if (idx !== -1) {
-          messageRows[idx] = data.updated;
+          messageRows[idx] = mergeMessageRowFromPutUpdate(messageRows[idx], data.updated);
         }
         editingMessageId = null;
         const stack = row.querySelector(".message-stack");
@@ -1063,6 +1109,8 @@
 
     function getMessagePlainTextForCopy(message) {
       if (!message) return "";
+      const st = String(message.sender_type || "").trim().toLowerCase();
+      if (st === "bot") return getDisplayedBotMessageContent(message);
       return normalizeChatMessageText(message.content || "");
     }
 
@@ -1108,8 +1156,139 @@
       window.location.href = `/pages/chat.html?${qs.join("&")}`;
     }
 
+    /** @returns {number|null} */
+    function parseMessageCreatedAtMs(m) {
+      if (!m || m.created_at == null) return null;
+      const raw = String(m.created_at).trim();
+      if (!raw) return null;
+      const ms = new Date(raw).getTime();
+      return Number.isFinite(ms) ? ms : null;
+    }
+
+    function getFirstBotMessageIdForUi() {
+      const rows = Array.isArray(messageRows) ? messageRows : [];
+      const isBot = (m) =>
+        m &&
+        m.id != null &&
+        String(m.sender_type || "").trim().toLowerCase() === "bot";
+
+      const bots = rows
+        .filter(isBot)
+        .map((m) => ({
+          id: Number(m.id),
+          t: parseMessageCreatedAtMs(m),
+        }))
+        .sort((a, b) => {
+          const aKnown = a.t != null ? 0 : 1;
+          const bKnown = b.t != null ? 0 : 1;
+          if (aKnown !== bKnown) return aKnown - bKnown;
+          if (a.t != null && b.t != null && a.t !== b.t) return a.t - b.t;
+          return a.id - b.id;
+        });
+      return bots.length ? bots[0].id : null;
+    }
+
+    function isInitialBotGreetingMessage(message) {
+      const st = String(message?.sender_type || "").trim().toLowerCase();
+      if (!message || st !== "bot" || message.id == null) {
+        return false;
+      }
+      const firstId = getFirstBotMessageIdForUi();
+      if (firstId == null) return false;
+      return Number(message.id) === firstId;
+    }
+
+    function buildMessageVariantBar(message) {
+      const variants = getBotSwipeVariants(message);
+      if (!variants?.length || !message.id) return "";
+      const n = variants.length;
+      const i = clampSwipeVariantIndex(message._variantIndex, n);
+      const atStart = i <= 0;
+      const atEnd = i >= n - 1;
+      const id = message.id;
+      return `
+        <div class="message-variant-bar" data-message-id="${id}">
+          <button
+            type="button"
+            class="message-variant-nav-btn"
+            data-action="variant-prev"
+            data-message-id="${id}"
+            ${atStart ? "disabled" : ""}
+            title="Предыдущий вариант"
+            aria-label="Предыдущий вариант"
+          >‹</button>
+          <span class="message-variant-count">${i + 1} / ${n}</span>
+          <button
+            type="button"
+            class="message-variant-nav-btn"
+            data-action="variant-next"
+            data-message-id="${id}"
+            ${atEnd ? "disabled" : ""}
+            title="Следующий вариант"
+            aria-label="Следующий вариант"
+          >›</button>
+        </div>
+      `;
+    }
+
+    function stepSwipeVariant(messageId, delta) {
+      const idx = messageRows.findIndex((item) => Number(item.id) === messageId);
+      if (idx === -1) return;
+      const m = messageRows[idx];
+      const variants = getBotSwipeVariants(m);
+      if (!variants) return;
+      const cur = clampSwipeVariantIndex(m._variantIndex, variants.length);
+      const next = clampSwipeVariantIndex(cur + delta, variants.length);
+      if (next === cur) return;
+      messageRows[idx] = { ...m, _variantIndex: next };
+      rerenderMessages();
+    }
+
+    function mergeMessageRowFromPutUpdate(prev, updated) {
+      if (!updated) return prev;
+      if (!prev) return updated;
+      const next = { ...prev, ...updated };
+      if (Object.prototype.hasOwnProperty.call(updated, "_contentVariants")) {
+        if (
+          updated._contentVariants == null ||
+          !Array.isArray(updated._contentVariants) ||
+          updated._contentVariants.length < 2
+        ) {
+          delete next._contentVariants;
+          delete next._variantIndex;
+        } else {
+          next._contentVariants = updated._contentVariants;
+          next._variantIndex =
+            updated._variantIndex != null ? Number(updated._variantIndex) : 0;
+        }
+      }
+      return next;
+    }
+
+    /** Сохраняет на сервер текст того варианта, который сейчас показан (перед новым сообщением или перегенерацией). */
+    async function commitPendingSwipeVariantsBeforeSend() {
+      for (let i = 0; i < messageRows.length; i++) {
+        const m = messageRows[i];
+        const st = String(m.sender_type || "").trim().toLowerCase();
+        if (st !== "bot" || m.id == null) continue;
+        if (!getBotSwipeVariants(m)) continue;
+        if (isSwipeVariantCommittedToServer(m)) continue;
+        const text = getDisplayedBotMessageContent(m).trim();
+        if (!text) continue;
+        const rawVars = m._contentVariants;
+        const vars = rawVars.map((t) => normalizeChatMessageText(String(t)));
+        const vIdx = clampSwipeVariantIndex(m._variantIndex, vars.length);
+        const data = await updateMessageOnServer(Number(m.id), text, {
+          variants: vars,
+          index: vIdx,
+        });
+        messageRows[i] = mergeMessageRowFromPutUpdate(m, data.updated);
+      }
+    }
+
     function buildMessageFooterActions(message) {
       if (!message?.id) return "";
+      if (isInitialBotGreetingMessage(message)) return "";
       const canRegenerate = message.sender_type === "bot";
 
       return `
@@ -1169,6 +1348,11 @@
           ? activePersona?.name || savedUser.username || "Вы"
           : currentBot?.name || "Бот";
 
+      const bubbleText =
+        type === "bot" && !isLoadingUi
+          ? getDisplayedBotMessageContent(message)
+          : normalizeChatMessageText(message.content);
+
       row.innerHTML = `
         <img class="message-avatar" src="${escapeHtml(avatar)}" alt="" />
         <div class="message-stack ${type === "user" ? "message-stack--user" : ""}">
@@ -1179,10 +1363,11 @@
             </div>
           </div>
           <div class="message-bubble ${isLoadingUi ? "loading" : ""}"${isFilterNotice ? ' role="status" aria-live="polite"' : ""}>
-            ${isLoadingUi ? buildTypingDotsHtml() : escapeHtml(normalizeChatMessageText(message.content))}
+            ${isLoadingUi ? buildTypingDotsHtml() : escapeHtml(bubbleText)}
           </div>
           ${isUserPolicyFlagged && !isLoadingUi ? `<p class="message-policy-hint" role="note">Реплика не проходит правила площадки (жестокость, 18+ или мат). Для модели в истории она учитывается как скрытая; ответ персонажа ограничен.</p>` : ""}
           ${!isLoadingUi ? buildMessageFooterActions(message) : ""}
+          ${!isLoadingUi && type === "bot" ? buildMessageVariantBar(message) : ""}
         </div>
       `;
 
@@ -1330,16 +1515,31 @@
       return data;
     }
 
-    async function updateMessageOnServer(messageId, text) {
+    async function updateMessageOnServer(messageId, text, swipePersist = null) {
+      const body = {
+        user_id: userId,
+        text,
+      };
+      if (
+        swipePersist &&
+        Array.isArray(swipePersist.variants) &&
+        swipePersist.variants.length >= 2
+      ) {
+        const ix = Number(swipePersist.index);
+        body.swipe_variants = {
+          variants: swipePersist.variants.map((x) => String(x)),
+          index: Number.isFinite(ix)
+            ? ix
+            : swipePersist.variants.length - 1,
+        };
+      }
+
       const response = await fetch(`${API_BASE}/chat/${currentChatId}/message/${messageId}`, {
         method: "PUT",
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({
-          user_id: userId,
-          text,
-        }),
+        body: JSON.stringify(body),
       });
       const data = await safeReadJson(response);
       if (!response.ok) throw new Error(data.message || "Ошибка редактирования");
@@ -1475,6 +1675,7 @@
       const signal = startAiBusy();
 
       try {
+        await commitPendingSwipeVariantsBeforeSend();
         const data = await sendMessageToServer(text, signal);
 
         loadingMessage.remove();
@@ -1538,6 +1739,26 @@
         closeAllMessageMoreMenus();
         try {
           await runMenuMessageAction(menuAction, messageId);
+        } catch (error) {
+          showToast(error.message || "Ошибка действия с сообщением");
+        }
+        return;
+      }
+
+      const variantBarBtn = event.target.closest(".message-variant-bar button[data-action]");
+      if (variantBarBtn) {
+        const action = variantBarBtn.dataset.action;
+        const messageId = Number(variantBarBtn.dataset.messageId);
+        if (!messageId) return;
+        try {
+          if (action === "variant-prev") {
+            stepSwipeVariant(messageId, -1);
+            return;
+          }
+          if (action === "variant-next") {
+            stepSwipeVariant(messageId, 1);
+            return;
+          }
         } catch (error) {
           showToast(error.message || "Ошибка действия с сообщением");
         }

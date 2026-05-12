@@ -1,0 +1,157 @@
+<!doctype html>
+<html lang="ru">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Инструкция — Charitor.ai</title>
+    <link rel="stylesheet" href="/css/general.css" />
+    <link rel="stylesheet" href="/css/docs.css" />
+  </head>
+  <body>
+    <nav class="docs-hub-nav" aria-label="Документы и справка">
+      <a class="docs-hub-link" href="/pages/docs/guide.html">Инструкция</a>
+      <a class="docs-hub-link" href="/pages/docs/rules.html">Правила</a>
+      <a class="docs-hub-link" href="/pages/docs/faq.html">FAQ</a>
+      <a class="docs-hub-link" href="/pages/docs/privacy.html">Конфиденциальность</a>
+      <a class="docs-hub-link" href="/pages/docs/cookies.html">Cookie</a>
+      <a class="docs-hub-link" href="/pages/docs/about.html">О сервисе</a>
+      <a class="docs-hub-link" href="/pages/docs/news.html">Новости</a>
+      <a class="docs-hub-link docs-hub-link--muted" href="/pages/index.html">Лендинг</a>
+    </nav>
+    <main class="docs-page">
+      <section class="docs-card">
+        <h1>Инструкция по сервису</h1>
+        <p>
+          Кратко: зарегистрируйся или войди, при желании создай
+          <strong>персону</strong> (образ, от лица которого пишешь в чате), затем выбери
+          <strong>персонажа (бота)</strong> и веди диалог. Сюжет развивается в сообщениях; модель
+          опирается на карточку бота и историю чата.
+        </p>
+
+        <p class="docs-inline-links">
+          Обязательно ознакомься с
+          <a href="/pages/docs/rules.html">правилами сообщества</a>
+          и
+          <a href="/pages/docs/privacy.html">политикой конфиденциальности</a>.
+        </p>
+
+        <h2 id="account">Аккаунт</h2>
+        <ul>
+          <li>
+            <strong>Регистрация</strong> — страница «Зарегистрироваться»: имя пользователя, email,
+            пароль. После входа откроется лента приложения.
+          </li>
+          <li>
+            <strong>Профиль</strong> — смена аватара и данных; в профиле видны твои созданные
+            персонажи (боты).
+          </li>
+        </ul>
+
+        <h2 id="personas">Персоны</h2>
+        <p>
+          Персона — это твой «я» в диалоге: имя, аватар, краткое описание, стиль речи. От выбранной
+          персоны зависит, как формулируются твои реплики в промпте к модели. Создавай и выбирай
+          персону в разделе «Персоны»; в чате можно сменить персону через меню.
+        </p>
+
+        <h2 id="create-bot">Как создать персонажа (бота)</h2>
+        <p>
+          Открой <a href="/pages/create.html">«Создать персонажа»</a> (нужна авторизация). Заполни
+          поля по смыслу — из них собирается системный промпт для ИИ.
+        </p>
+        <ul>
+          <li>
+            <strong>Изображение</strong> — обложка карточки (PNG, JPG, WEBP).
+          </li>
+          <li>
+            <strong>Имя</strong> — отображается в каталоге и в чате.
+          </li>
+          <li>
+            <strong>Как пользователь воспринимает персонажа</strong> — короткий тизер для списка
+            карточек.
+          </li>
+          <li>
+            <strong>Биография</strong> — подробная личность, предыстория, важные детали. Чем яснее
+            факты, тем стабильнее ответы.
+          </li>
+          <li>
+            <strong>Сценарий (Scenario)</strong> — место действия, ситуация старта, что уже
+            произошло до первого сообщения.
+          </li>
+          <li>
+            <strong>Личность и стиль общения</strong> — тон, манера речи, эмоции, как реагирует на
+            пользователя.
+          </li>
+          <li>
+            <strong>Лор и факты для памяти</strong> — список опорных фактов (по строке), на которые
+            бот должен опираться.
+          </li>
+          <li>
+            <strong>Начальное сообщение</strong> — первая реплика бота пользователю; задаёт вход в
+            сцену.
+          </li>
+          <li>
+            <strong>Примеры диалогов</strong> — образец «как бот отвечает»; улучшает попадание в
+            стиль.
+          </li>
+          <li>
+            <strong>Видимость</strong> — кто видит карточку в каталоге (например, только ты или все).
+          </li>
+          <li>
+            <strong>Теги</strong> — темы для поиска (фэнтези, романтика и т.д.).
+          </li>
+        </ul>
+        <p>
+          После сохранения карточка появится в профиле; открой бота и нажми «Чат», чтобы начать
+          историю.
+        </p>
+
+        <h2 id="chat">Чаты и сюжет</h2>
+        <ul>
+          <li>
+            История диалога сохраняется; продолжить можно из раздела «Мои чаты» / «История чатов».
+          </li>
+          <li>
+            Ответы модели — художественная генерация; площадка может ограничивать небезопасный
+            контент (см. уведомление в чате).
+          </li>
+          <li>
+            Для локальной работы должен быть запущен сервер приложения и доступ к модели (например,
+            Ollama), если используешь свой инстанс.
+          </li>
+        </ul>
+
+        <h2 id="search">Поиск и каталог</h2>
+        <p>
+          На странице поиска можно фильтровать персонажей по тегам и тексту. Открывай карточку бота,
+          читай описание сюжета и присоединяйся к чату.
+        </p>
+
+        <div class="docs-links">
+          <a class="docs-link" href="/pages/create.html">Создать персонажа</a>
+          <a class="docs-link" href="/pages/docs/rules.html">Правила сообщества</a>
+          <a class="docs-link" href="/pages/docs/faq.html">FAQ</a>
+          <a class="docs-link" href="/pages/main.html">В приложение</a>
+        </div>
+      </section>
+    </main>
+
+    <footer class="app-doc-footer" role="contentinfo">
+      <nav class="app-doc-footer-nav" aria-label="Документы и справка">
+        <a href="/pages/docs/guide.html">Справка и инструкция</a>
+        <span class="app-doc-footer-sep" aria-hidden="true">·</span>
+        <a href="/pages/docs/rules.html">Правила сообщества</a>
+        <span class="app-doc-footer-sep" aria-hidden="true">·</span>
+        <a href="/pages/docs/faq.html">FAQ</a>
+        <span class="app-doc-footer-sep" aria-hidden="true">·</span>
+        <a href="/pages/docs/privacy.html">Конфиденциальность</a>
+        <span class="app-doc-footer-sep" aria-hidden="true">·</span>
+        <a href="/pages/docs/cookies.html">Cookie</a>
+        <span class="app-doc-footer-sep" aria-hidden="true">·</span>
+        <a href="/pages/docs/about.html">О сервисе</a>
+        <span class="app-doc-footer-sep" aria-hidden="true">·</span>
+        <a href="/pages/docs/news.html">Новости</a>
+      </nav>
+    </footer>
+  </body>
+</html>

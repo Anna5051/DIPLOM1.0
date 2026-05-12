@@ -186,6 +186,27 @@ body {
   line-height: 1.6;
 }
 
+.create-doc-links {
+  margin: 10px 0 0;
+  font-size: 13px;
+  line-height: 1.5;
+  color: rgba(210, 206, 245, 0.85);
+}
+
+.create-doc-links a {
+  color: #c8b8ff;
+  text-decoration: none;
+}
+
+.create-doc-links a:hover {
+  text-decoration: underline;
+}
+
+.create-doc-sep {
+  margin: 0 0.35em;
+  opacity: 0.65;
+}
+
 .create-form {
   display: flex;
   flex-direction: column;

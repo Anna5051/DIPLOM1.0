@@ -6,6 +6,7 @@ const express = require("express");
 const cors = require("cors");
 const bcrypt = require("bcryptjs");
 const db = require("./db");
+const { sanitizeBotTagsField } = require("./tagPolicy");
 
 const app = express();
 let currentHttpServer = null;
@@ -145,6 +146,17 @@ function dbQuery(sql, params = []) {
       resolve(rows);
     });
   });
+}
+
+/** Первое сообщение бота в чате (приветствие / начало истории) — по порядку как в выдаче API */
+async function getOldestBotMessageIdInChat(chatId) {
+  const cid = parseInt(String(chatId), 10);
+  if (!Number.isFinite(cid) || cid < 1) return null;
+  const rows = await dbQuery(
+    "SELECT id FROM messages WHERE chat_id = ? AND sender_type = 'bot' ORDER BY created_at ASC, id ASC LIMIT 1",
+    [cid],
+  );
+  return rows.length ? Number(rows[0].id) : null;
 }
 
 /**
@@ -298,6 +310,24 @@ function ensureMessagesPolicyViolationColumn() {
       return;
     }
     console.warn("БД: не удалось проверить/добавить messages.policy_violation —", err.message);
+  });
+}
+
+function ensureMessagesContentVariantsColumn() {
+  const sql = `
+    ALTER TABLE messages
+    ADD COLUMN content_variants TEXT NULL AFTER policy_violation
+  `;
+
+  db.query(sql, (err) => {
+    if (!err) {
+      console.log("БД: добавлена колонка messages.content_variants");
+      return;
+    }
+    if (err.code === "ER_DUP_FIELDNAME") {
+      return;
+    }
+    console.warn("БД: не удалось проверить/добавить messages.content_variants —", err.message);
   });
 }
 
@@ -845,6 +875,7 @@ app.post("/create-bot", (req, res) => {
   }
 
   const safeVisibility = visibility === "private" ? "private" : "public";
+  const safeTags = sanitizeBotTagsField(tags);
 
   const sql = `
     INSERT INTO bots
@@ -873,7 +904,7 @@ app.post("/create-bot", (req, res) => {
       greeting_message || "",
       system_prompt || "",
       safeVisibility,
-      tags || "",
+      safeTags,
     ],
     (err, result) => {
       if (err) {
@@ -993,6 +1024,7 @@ app.put("/bot/:id", (req, res) => {
   }
 
   const safeVisibility = visibility === "private" ? "private" : "public";
+  const safeTags = sanitizeBotTagsField(tags);
 
   const checkSql = `
     SELECT id, creator_id
@@ -1047,7 +1079,7 @@ app.put("/bot/:id", (req, res) => {
         greeting_message || "",
         system_prompt || "",
         safeVisibility,
-        tags || "",
+        safeTags,
         id,
       ],
       (updateErr) => {
@@ -1341,6 +1373,7 @@ app.get("/chat-by-bot/:botId", (req, res) => {
           sender_type,
           content,
           COALESCE(policy_violation, 0) AS policy_violation,
+          content_variants,
           created_at
         FROM messages
         WHERE chat_id = ?
@@ -1612,6 +1645,7 @@ app.get("/chat/:chatId", (req, res) => {
         sender_type,
         content,
         COALESCE(policy_violation, 0) AS policy_violation,
+        content_variants,
         created_at
       FROM messages
       WHERE chat_id = ?
@@ -1872,7 +1906,7 @@ app.post("/chat/:chatId/message", (req, res) => {
 
 app.put("/chat/:chatId/message/:messageId", async (req, res) => {
   const { chatId, messageId } = req.params;
-  const { user_id, text } = req.body;
+  const { user_id, text, swipe_variants } = req.body;
   const normalizedText = String(text || "").trim();
 
   if (!user_id) {
@@ -1926,36 +1960,67 @@ app.put("/chat/:chatId/message/:messageId", async (req, res) => {
       });
     }
 
+    let updated;
+
     if (messageRows[0].sender_type === "user") {
       await dbQuery(
         `
           UPDATE messages
-          SET content = ?, policy_violation = 0
+          SET content = ?, policy_violation = 0, content_variants = NULL
           WHERE id = ? AND chat_id = ?
         `,
         [encryptMessageContentForDb(normalizedText), messageId, chatId],
       );
+      updated = {
+        id: Number(messageId),
+        chat_id: Number(chatId),
+        sender_type: "user",
+        content: normalizedText,
+        policy_violation: 0,
+      };
     } else {
+      let encVariants = null;
+      let botVariantIndex = null;
+      let botVariantsOut = null;
+      const sv = swipe_variants;
+      if (sv && Array.isArray(sv.variants) && sv.variants.length >= 2) {
+        const vars = sv.variants.map((x) => String(x));
+        let idx = Number(sv.index);
+        if (!Number.isFinite(idx)) idx = vars.length - 1;
+        idx = Math.max(0, Math.min(vars.length - 1, Math.floor(idx)));
+        if (String(vars[idx] ?? "").trim() !== normalizedText) {
+          return res.status(400).json({
+            message: "Некорректные данные вариантов ответа",
+          });
+        }
+        encVariants = encryptMessageContentForDb(JSON.stringify({ v: vars, i: idx }));
+        botVariantIndex = idx;
+        botVariantsOut = vars;
+      }
       await dbQuery(
         `
           UPDATE messages
-          SET content = ?
+          SET content = ?, content_variants = ?
           WHERE id = ? AND chat_id = ?
         `,
-        [encryptMessageContentForDb(normalizedText), messageId, chatId],
+        [encryptMessageContentForDb(normalizedText), encVariants, messageId, chatId],
       );
+      updated = {
+        id: Number(messageId),
+        chat_id: Number(chatId),
+        sender_type: "bot",
+        content: normalizedText,
+        ...(botVariantsOut
+          ? { _contentVariants: botVariantsOut, _variantIndex: botVariantIndex }
+          : { _contentVariants: null, _variantIndex: null }),
+      };
     }
+
     await dbQuery("UPDATE chats SET updated_at = NOW() WHERE id = ?", [chatId]);
 
     return res.json({
       message: "Сообщение обновлено ✅",
-      updated: {
-        id: Number(messageId),
-        chat_id: Number(chatId),
-        sender_type: messageRows[0].sender_type,
-        content: normalizedText,
-        ...(messageRows[0].sender_type === "user" ? { policy_violation: 0 } : {}),
-      },
+      updated,
     });
   } catch (error) {
     return res.status(500).json({ message: "Ошибка редактирования сообщения" });
@@ -1975,6 +2040,13 @@ app.delete("/chat/:chatId/message/:messageId", async (req, res) => {
     if (!ownedChat) return res.status(404).json({ message: "Чат не найден" });
     if (ownedChat === "forbidden") {
       return res.status(403).json({ message: "Нет доступа к этому чату" });
+    }
+
+    const oldestBotId = await getOldestBotMessageIdInChat(chatId);
+    if (oldestBotId != null && Number(messageId) === oldestBotId) {
+      return res.status(400).json({
+        message: "Начальное сообщение бота нельзя удалить",
+      });
     }
 
     const deleteResult = await dbQuery(
@@ -2049,7 +2121,7 @@ app.post("/chat/:chatId/message/:messageId/regenerate", async (req, res) => {
 
     const targetRows = await dbQuery(
       `
-        SELECT id, sender_type, content
+        SELECT id, sender_type, content, content_variants
         FROM messages
         WHERE id = ? AND chat_id = ?
         LIMIT 1
@@ -2061,6 +2133,13 @@ app.post("/chat/:chatId/message/:messageId/regenerate", async (req, res) => {
     }
     if (targetRows[0].sender_type !== "bot") {
       return res.status(400).json({ message: "Перегенерация доступна только для ответа бота" });
+    }
+
+    const oldestBotId = await getOldestBotMessageIdInChat(chatId);
+    if (oldestBotId != null && Number(messageId) === oldestBotId) {
+      return res.status(400).json({
+        message: "Начальное сообщение бота нельзя перегенерировать",
+      });
     }
 
     const previousRows = await dbQuery(
@@ -2086,15 +2165,73 @@ app.post("/chat/:chatId/message/:messageId/regenerate", async (req, res) => {
       runtimeConfig,
     );
 
-    await dbQuery(
-      `
-        UPDATE messages
-        SET content = ?
-        WHERE id = ? AND chat_id = ?
-      `,
-      [encryptMessageContentForDb(regenerated), messageId, chatId],
-    );
+    const plainOld = decryptMessageContentFromDb(targetRows[0].content);
+    let oldMeta = null;
+    if (
+      targetRows[0].content_variants != null &&
+      String(targetRows[0].content_variants).trim() !== ""
+    ) {
+      try {
+        oldMeta = JSON.parse(
+          decryptMessageContentFromDb(targetRows[0].content_variants),
+        );
+      } catch {
+        oldMeta = null;
+      }
+    }
+
+    const isSwipe = Boolean(swipe);
+    let swipeVariantsList = null;
+    let swipeVariantIndex = null;
+
+    if (isSwipe) {
+      if (oldMeta && Array.isArray(oldMeta.v) && oldMeta.v.length >= 2) {
+        swipeVariantsList = [...oldMeta.v.map((x) => String(x)), String(regenerated)];
+      } else {
+        swipeVariantsList = [String(plainOld), String(regenerated)];
+      }
+      swipeVariantIndex = swipeVariantsList.length - 1;
+      const encVar = encryptMessageContentForDb(
+        JSON.stringify({ v: swipeVariantsList, i: swipeVariantIndex }),
+      );
+      await dbQuery(
+        `
+          UPDATE messages
+          SET content = ?, content_variants = ?
+          WHERE id = ? AND chat_id = ?
+        `,
+        [
+          encryptMessageContentForDb(regenerated),
+          encVar,
+          messageId,
+          chatId,
+        ],
+      );
+    } else {
+      await dbQuery(
+        `
+          UPDATE messages
+          SET content = ?, content_variants = NULL
+          WHERE id = ? AND chat_id = ?
+        `,
+        [encryptMessageContentForDb(regenerated), messageId, chatId],
+      );
+    }
     await dbQuery("UPDATE chats SET updated_at = NOW() WHERE id = ?", [chatId]);
+
+    if (isSwipe && swipeVariantsList) {
+      return res.json({
+        message: "Ответ перегенерирован ✅",
+        reply: {
+          id: Number(messageId),
+          chat_id: Number(chatId),
+          sender_type: "bot",
+          content: regenerated,
+          _contentVariants: swipeVariantsList,
+          _variantIndex: swipeVariantIndex,
+        },
+      });
+    }
 
     return res.json({
       message: "Ответ перегенерирован ✅",
@@ -3272,6 +3409,7 @@ function startHttpServer(port) {
         ensureBotBlockedColumn();
         ensureBotDeletedColumn();
         ensureMessagesPolicyViolationColumn();
+        ensureMessagesContentVariantsColumn();
         ensureFavoritesBotsUserBotIndex();
         ensureReportsTable();
       }

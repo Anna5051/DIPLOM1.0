@@ -195,6 +195,27 @@ nav {
   font-size: 20px;
 }
 
+.info-card h3 a {
+  color: inherit;
+  text-decoration: none;
+}
+
+.info-card h3 a:hover {
+  text-decoration: underline;
+}
+
+.info-card-more {
+  display: inline-block;
+  margin-top: 10px;
+  font-size: 14px;
+  color: #c9bfff;
+  text-decoration: none;
+}
+
+.info-card-more:hover {
+  text-decoration: underline;
+}
+
 .info-card p {
   margin: 0;
   color: rgba(255, 255, 255, 0.88);

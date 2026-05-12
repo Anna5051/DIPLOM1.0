@@ -296,6 +296,24 @@
       </div>
     </div>
 
+    <footer class="app-doc-footer" role="contentinfo">
+      <nav class="app-doc-footer-nav" aria-label="Документы и справка">
+        <a href="/pages/docs/guide.html">Справка и инструкция</a>
+        <span class="app-doc-footer-sep" aria-hidden="true">·</span>
+        <a href="/pages/docs/rules.html">Правила сообщества</a>
+        <span class="app-doc-footer-sep" aria-hidden="true">·</span>
+        <a href="/pages/docs/faq.html">FAQ</a>
+        <span class="app-doc-footer-sep" aria-hidden="true">·</span>
+        <a href="/pages/docs/privacy.html">Конфиденциальность</a>
+        <span class="app-doc-footer-sep" aria-hidden="true">·</span>
+        <a href="/pages/docs/cookies.html">Cookie</a>
+        <span class="app-doc-footer-sep" aria-hidden="true">·</span>
+        <a href="/pages/docs/about.html">О сервисе</a>
+        <span class="app-doc-footer-sep" aria-hidden="true">·</span>
+        <a href="/pages/docs/news.html">Новости</a>
+      </nav>
+    </footer>
+
     <script>
       const brandLink = document.querySelector(".brand");
       if (brandLink) {
@@ -529,6 +547,83 @@
         };
       }
 
+      const TAG_ALIASES = {
+        rpg: "rp",
+        "sci-fi": "scifi",
+        sci_fi: "scifi",
+      };
+
+      function translateTag(tag) {
+        const raw = String(tag || "").trim();
+        const key = raw.toLowerCase().replace(/\s+/g, "_");
+        const canonical = TAG_ALIASES[key] || key;
+        const map = {
+          romance: "Романтика",
+          drama: "Драма",
+          rp: "Ролевые сценарии",
+          dark: "Тёмные сюжеты",
+          dark_fantasy: "Тёмное фэнтези",
+          fantasy: "Фэнтези",
+          anime: "Аниме",
+          adventure: "Приключения",
+          story: "Истории",
+          villain: "Злодеи",
+          hero: "Герои",
+          mystery: "Мистика",
+          magic: "Магия",
+          slowburn: "Медленное развитие",
+          enemies: "От ненависти до любви",
+          oc: "Оригинальные персонажи",
+          scenario: "Сценарные",
+          male: "Мужской POV",
+          female: "Женский POV",
+          nonhuman: "Нелюди",
+          historical: "Исторические",
+          school: "Школьные",
+          office: "Офисные",
+          mafia: "Мафия",
+          detective: "Детектив",
+          vampire: "Вампиры",
+          robot: "Роботы",
+          scifi: "Научная фантастика",
+          comedy: "Комедия",
+          angst: "Ангст",
+          royalty: "Королевские",
+          monster: "Монстры",
+          assistant: "Ассистенты",
+          beginning: "Для новичков",
+          music: "Музыкальные",
+          cyberpunk: "Киберпанк",
+          analytics: "Аналитика",
+          street: "Уличные сюжеты",
+          space: "Космос",
+          command: "Командование",
+          tactical: "Тактика",
+          engineering: "Инженерия",
+          logic: "Логика",
+          gothic: "Готика",
+          history: "Исторические",
+          archive: "Архивные",
+          scholar: "Ученые",
+          nature: "Природа",
+          soft: "Мягкий стиль",
+          city: "Городские",
+          slice_of_life: "Повседневность",
+          ru: "Русский",
+        };
+        return map[canonical] || raw.replace(/_/g, " ");
+      }
+
+      function formatTagsRu(tagsString) {
+        if (!tagsString || !String(tagsString).trim()) return "нет";
+        const parts = String(tagsString)
+          .split(/[,;]+/)
+          .map((t) => t.trim())
+          .filter(Boolean);
+        if (!parts.length) return "нет";
+        return parts.map((t) => translateTag(t)).join(", ");
+      }
+
       function setTags(tagsString) {
         tagsList.innerHTML = "";
 
@@ -547,10 +642,10 @@
           return;
         }
 
-        tags.forEach((tag, index) => {
+        tags.forEach((tag) => {
           const span = document.createElement("span");
-          span.className = index === 0 ? "tag active" : "tag";
-          span.textContent = tag;
+          span.className = "tag";
+          span.textContent = translateTag(tag);
           tagsList.appendChild(span);
         });
       }
@@ -959,18 +1054,18 @@
             shortStoryText || scenarioText || "Краткое содержание отсутствует",
           );
           setTags(bot.tags);
-accordionPlot.innerHTML = escapeHtml(
-  normalizeStoryText(scenarioText || "Сюжет не указан"),
-).replace(/\n/g, "<br>");
-accordionPersonality.innerHTML = escapeHtml(
-  normalizeStoryText(
-    `${bot.full_description || "Биография не указана"}\n\nТеги: ${bot.tags || "нет"}`
-  ),
-).replace(/\n/g, "<br>");
-accordionGreeting.innerHTML =
-  bot.greeting_message || "Начальное сообщение не указано";
-accordionSystemPrompt.innerHTML =
-  bot.system_prompt || "Системный промпт не указан";
+          accordionPlot.innerHTML = escapeHtml(
+            normalizeStoryText(scenarioText || "Сюжет не указан"),
+          ).replace(/\n/g, "<br>");
+          accordionPersonality.innerHTML = escapeHtml(
+            normalizeStoryText(
+              `${bot.full_description || "Биография не указана"}\n\nТеги: ${formatTagsRu(bot.tags)}`,
+            ),
+          ).replace(/\n/g, "<br>");
+          accordionGreeting.innerHTML =
+            bot.greeting_message || "Начальное сообщение не указано";
+          accordionSystemPrompt.innerHTML =
+            bot.system_prompt || "Системный промпт не указан";
 
           showOwnerButtons(bot);
           updateChatModalTitle();

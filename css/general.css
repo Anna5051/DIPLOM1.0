@@ -162,10 +162,9 @@ body.page-transition.page-leaving {
   display: none !important;
 }
 
-/* Unified header style for internal pages */
+/* Unified header style for internal pages (страница поиска — только в search.css) */
 .topbar,
 .person-topbar,
-.search-topbar,
 .history-topbar,
 .chat-topbar {
   position: sticky !important;
@@ -184,7 +183,6 @@ body.page-transition.page-leaving {
 }
 .topbar,
 .person-topbar,
-.search-topbar,
 .history-topbar,
 .chat-topbar {
   min-height: 64px !important;
@@ -269,7 +267,6 @@ body.page-transition.page-leaving {
 }
 
 .search-box,
-.top-search,
 .history-search {
   width: 100% !important;
   max-width: 620px !important;
@@ -282,7 +279,6 @@ body.page-transition.page-leaving {
 }
 
 .search-box input,
-.top-search input,
 .history-search input {
   flex: 1 !important;
   border: none !important;
@@ -294,7 +290,6 @@ body.page-transition.page-leaving {
 }
 
 .search-box button,
-.top-search button,
 .history-search button {
   border: none !important;
   background: transparent !important;
@@ -356,7 +351,6 @@ body.page-transition.page-leaving {
 
   .topbar,
   .person-topbar,
-  .search-topbar,
   .history-topbar,
   .chat-topbar {
     grid-template-columns: 1fr !important;
@@ -377,7 +371,6 @@ body.page-transition.page-leaving {
   }
 
   .search-box,
-  .top-search,
   .history-search {
     max-width: 100% !important;
   }
@@ -407,7 +400,6 @@ body.page-transition.page-leaving {
 @media (max-width: 700px) {
   .topbar,
   .person-topbar,
-  .search-topbar,
   .history-topbar {
     display: none !important;
   }
@@ -474,67 +466,11 @@ body.page-transition.page-leaving {
   }
 
   .search-page {
-    padding-top: 10px !important;
-  }
-
-  .mobile-search-head {
-    position: sticky;
-    top: 8px;
-    z-index: 40;
-    margin-bottom: 10px;
-  }
-
-  .mobile-search-row {
-    display: grid;
-    grid-template-columns: 1fr 46px;
-    gap: 8px;
-    align-items: center;
-  }
-
-  .mobile-search-row input {
-    width: 100%;
-    min-height: 42px;
-    border-radius: 12px;
-    border: 1px solid rgba(179, 158, 255, 0.34);
-    background: rgba(42, 43, 56, 0.92);
-    color: #fff;
-    padding: 0 14px;
-    font-size: 16px;
-    outline: none;
-  }
-
-  .mobile-search-row input::placeholder {
-    color: rgba(255, 255, 255, 0.55);
-  }
-
-  .mobile-search-row button {
-    width: 46px;
-    height: 42px;
-    border-radius: 12px;
-    border: 1px solid rgba(179, 158, 255, 0.34);
-    background: rgba(66, 70, 84, 0.92);
-    color: #dcd7ff;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    cursor: pointer;
-  }
-
-  .mobile-search-row button svg {
-    width: 21px;
-    height: 21px;
+    padding-top: 8px !important;
   }
 
   .search-page .filters-card {
-    display: none !important;
-  }
-
-  body.mobile-filters-open .search-page .filters-card {
     display: block !important;
-  }
-
-  body.mobile-filters-open .search-page .search-layout {
-    grid-template-columns: 1fr !important;
   }
 
   .mobile-dock-nav {
@@ -645,4 +581,39 @@ body.page-transition.page-leaving {
     width: 44px;
     height: 44px;
   }
+}
+
+/* Текстовые ссылки на документы внизу страниц приложения */
+.app-doc-footer {
+  padding: 12px 20px 26px;
+  text-align: center;
+}
+
+.app-doc-footer-nav {
+  font-size: 13px;
+  line-height: 1.65;
+  max-width: 960px;
+  margin-left: auto;
+  margin-right: auto;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  align-items: baseline;
+  gap: 0;
+}
+
+.app-doc-footer-nav a {
+  color: rgba(205, 196, 255, 0.95);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.app-doc-footer-nav a:hover {
+  color: #fff;
+}
+
+.app-doc-footer-sep {
+  margin: 0 0.45em;
+  opacity: 0.55;
+  user-select: none;
 }

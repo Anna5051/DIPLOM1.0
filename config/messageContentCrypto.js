@@ -121,7 +121,36 @@ function decryptMessageRowsForApi(rows) {
     if (!row || typeof row !== "object") return row;
     if (!Object.prototype.hasOwnProperty.call(row, "content")) return row;
     try {
-      return { ...row, content: decryptMessageContentFromDb(row.content) };
+      const content = decryptMessageContentFromDb(row.content);
+      const { content_variants: cvRaw, ...rest } = row;
+      let _contentVariants;
+      let _variantIndex;
+      if (cvRaw != null && String(cvRaw).trim() !== "") {
+        try {
+          const metaPlain = decryptMessageContentFromDb(cvRaw);
+          const meta = JSON.parse(metaPlain);
+          if (meta && Array.isArray(meta.v) && meta.v.length >= 2) {
+            _contentVariants = meta.v.map((x) => String(x));
+            const len = _contentVariants.length;
+            let i = Number(meta.i);
+            if (!Number.isFinite(i)) i = len - 1;
+            if (i < 0) i = 0;
+            if (i > len - 1) i = len - 1;
+            _variantIndex = i;
+          }
+        } catch (e2) {
+          console.warn(
+            "messageContentCrypto: не удалось разобрать content_variants id=%s —",
+            row.id,
+            e2.message,
+          );
+        }
+      }
+      return {
+        ...rest,
+        content,
+        ...(_contentVariants ? { _contentVariants, _variantIndex } : {}),
+      };
     } catch (e) {
       console.error("messageContentCrypto: не удалось расшифровать сообщение id=%s", row.id, e);
       throw e;

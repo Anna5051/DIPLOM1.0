@@ -182,53 +182,5 @@
     }
   })();
 
-  // Мобильный поиск в стиле Janitor на странице search.
-  (function setupMobileSearchHeader() {
-    const path = window.location.pathname.toLowerCase();
-    if (!path.endsWith("/search.html")) return;
-    if (document.getElementById("mobileSearchHead")) return;
-
-    const desktopInput = document.getElementById("globalSearchInput");
-    if (!desktopInput) return;
-
-    const host = document.querySelector("main.search-page");
-    if (!host) return;
-
-    const wrap = document.createElement("div");
-    wrap.id = "mobileSearchHead";
-    wrap.className = "mobile-search-head";
-    wrap.innerHTML = `
-      <div class="mobile-search-row">
-        <input type="text" id="mobileSearchInput" placeholder="Search characters..." />
-        <button type="button" id="mobileFiltersToggle" aria-label="Фильтры">
-          <svg viewBox="0 0 24 24" aria-hidden="true">
-            <path d="M10 18h4v-2h-4v2zm-7-8v2h18v-2H3zm3-6v2h12V4H6z" fill="currentColor" />
-          </svg>
-        </button>
-      </div>
-    `;
-
-    host.prepend(wrap);
-    const mobileInput = document.getElementById("mobileSearchInput");
-    const filtersBtn = document.getElementById("mobileFiltersToggle");
-    mobileInput.value = desktopInput.value || "";
-
-    mobileInput.addEventListener("input", () => {
-      desktopInput.value = mobileInput.value;
-      desktopInput.dispatchEvent(new Event("input", { bubbles: true }));
-    });
-
-    mobileInput.addEventListener("keydown", (e) => {
-      if (e.key === "Enter") {
-        e.preventDefault();
-        desktopInput.dispatchEvent(new Event("input", { bubbles: true }));
-      }
-    });
-
-    filtersBtn.addEventListener("click", () => {
-      document.body.classList.toggle("mobile-filters-open");
-    });
-  })();
-
   window.notifyUser = notify;
 })();

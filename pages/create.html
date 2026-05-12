@@ -39,6 +39,13 @@
               Заполните карточку персонажа: базовая информация, сценарий,
               личность, начальное сообщение и правила генерации.
             </p>
+            <p class="create-doc-links">
+              <a href="/pages/docs/guide.html#create-bot">Как заполнять поля</a>
+              <span class="create-doc-sep" aria-hidden="true">·</span>
+              <a href="/pages/docs/rules.html">Правила сообщества</a>
+              <span class="create-doc-sep" aria-hidden="true">·</span>
+              <a href="/pages/docs/faq.html">FAQ</a>
+            </p>
           </div>
 
           <form id="createCharacterForm" class="create-form">
@@ -167,7 +174,8 @@
 
                 <div class="tag-suggestions" id="tagSuggestions"></div>
                 <p class="tags-hint" id="tagsHint">
-                  Показываются метки из поиска. Нажми на метку, чтобы добавить.
+                  Подсказки из каталога и из чужих ботов (безопасные метки). Можно ввести свою: 2–40 символов,
+                  буквы/цифры/подчёркивание; метки вроде 18+, nsfw, «секс» и т.п. недопустимы.
                 </p>
                 <div id="tagsNotice" class="tags-notice" hidden></div>
 
@@ -296,6 +304,24 @@
       </div>
     </main>
 
+    <footer class="app-doc-footer" role="contentinfo">
+      <nav class="app-doc-footer-nav" aria-label="Документы и справка">
+        <a href="/pages/docs/guide.html">Справка и инструкция</a>
+        <span class="app-doc-footer-sep" aria-hidden="true">·</span>
+        <a href="/pages/docs/rules.html">Правила сообщества</a>
+        <span class="app-doc-footer-sep" aria-hidden="true">·</span>
+        <a href="/pages/docs/faq.html">FAQ</a>
+        <span class="app-doc-footer-sep" aria-hidden="true">·</span>
+        <a href="/pages/docs/privacy.html">Конфиденциальность</a>
+        <span class="app-doc-footer-sep" aria-hidden="true">·</span>
+        <a href="/pages/docs/cookies.html">Cookie</a>
+        <span class="app-doc-footer-sep" aria-hidden="true">·</span>
+        <a href="/pages/docs/about.html">О сервисе</a>
+        <span class="app-doc-footer-sep" aria-hidden="true">·</span>
+        <a href="/pages/docs/news.html">Новости</a>
+      </nav>
+    </footer>
+
     <script>
       const brandLink = document.querySelector(".brand");
       if (brandLink) {
@@ -361,10 +387,14 @@
       let currentAvatarValue = "";
 
       function normalizeTag(rawTag) {
-        return rawTag
+        return String(rawTag || "")
           .trim()
-          .replace(/^#+/, "")
+          .normalize("NFKC")
+          .replace(/^#+/g, "")
+          .replace(/\+/g, "_")
+          .replace(/,/g, "_")
           .replace(/\s+/g, "_")
+          .replace(/_+/g, "_")
           .toLowerCase();
       }
 
@@ -428,6 +458,72 @@
         sci_fi: "scifi",
       };
 
+      /** Синхронизируйте с config/tagPolicy.js (FORBIDDEN_TAGS) */
+      const FORBIDDEN_TAGS = new Set([
+        "18+",
+        "16+",
+        "18_",
+        "16_",
+        "18plus",
+        "16plus",
+        "18_plus",
+        "18_+",
+        "16_+",
+        "r18",
+        "mature",
+        "adult",
+        "nsfw",
+        "porn",
+        "porno",
+        "порно",
+        "sex",
+        "секс",
+        "xxx",
+        "bdsm",
+        "эротика",
+        "hentai",
+        "хентай",
+        "wlw",
+        "mlm",
+        "poly",
+        "polyamory",
+        "полиамория",
+        "submissive",
+        "dominant",
+        "сабмиссив",
+        "доминант",
+        "flirt",
+        "флирт",
+        "politics",
+        "religion",
+        "политика",
+        "религия",
+      ]);
+
+      const MAX_TAGS = 16;
+
+      function isTagForbiddenClient(normalized) {
+        if (!normalized || normalized === "all") return true;
+        if (FORBIDDEN_TAGS.has(normalized)) return true;
+        const parts = normalized.split("_").filter(Boolean);
+        for (const part of parts) {
+          if (FORBIDDEN_TAGS.has(part)) return true;
+        }
+        for (let i = 0; i < parts.length - 1; i += 1) {
+          if (parts[i] === "18" && parts[i + 1] === "plus") return true;
+          if (parts[i] === "16" && parts[i + 1] === "plus") return true;
+        }
+        return false;
+      }
+
+      /** Как на сервере: только буквы (Unicode), цифры и _ */
+      function isAllowedCustomTagShape(normalized) {
+        if (normalized.length < 2 || normalized.length > 40) return false;
+        if (!/^[\p{L}\p{N}_]+$/u.test(normalized)) return false;
+        if (/^\d+$/.test(normalized)) return false;
+        return true;
+      }
+
       function toCanonicalTag(rawTag) {
         const normalized = normalizeTag(rawTag);
         return TAG_ALIASES[normalized] || normalized;
@@ -467,8 +563,30 @@
 
         chunks.forEach((chunk) => {
           const normalized = toCanonicalTag(chunk);
-          if (!normalized) return;
-          if (allowedTags.size && !allowedTags.has(normalized)) {
+          if (!normalized || normalized === "all") return;
+
+          if (isTagForbiddenClient(normalized)) {
+            showTagsNotice("Эта метка запрещена правилами площадки", "error");
+            return;
+          }
+
+          const catalogHasEntries = allowedTags.size > 0;
+          const inCatalog = catalogHasEntries && allowedTags.has(normalized);
+
+          if (!inCatalog && !isAllowedCustomTagShape(normalized)) {
+            showTagsNotice(
+              "Своя метка: 2–40 символов, буквы (любой язык), цифры и «_», без +, # и прочих символов",
+              "warning",
+            );
+            return;
+          }
+
+          if (!inCatalog && catalogHasEntries) {
+            allowedTags.add(normalized);
+          }
+
+          if (tags.length >= MAX_TAGS) {
+            showTagsNotice(`Не больше ${MAX_TAGS} меток`, "warning");
             return;
           }
 
@@ -543,9 +661,10 @@
             bots.forEach((bot) => {
               splitRawTags(bot.tags).forEach((tag) => {
                 const normalized = toCanonicalTag(tag);
-                if (normalized && allowedTags.has(normalized)) {
-                  availableTags.add(normalized);
-                }
+                if (!normalized || normalized === "all") return;
+                if (isTagForbiddenClient(normalized)) return;
+                if (!isAllowedCustomTagShape(normalized)) return;
+                availableTags.add(normalized);
               });
             });
           }

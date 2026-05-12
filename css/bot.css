@@ -714,9 +714,6 @@ body {
   justify-content: center;
   padding: 8px 12px;
   border-radius: 999px;
-  background: rgba(111, 82, 201, 0.34);
-  border: 1px solid rgba(177, 159, 255, 0.16);
-  color: #f3efff;
   font-size: 12px;
   line-height: 1.2;
   text-align: center;
@@ -725,14 +722,46 @@ body {
   max-width: 100%;
 }
 
-.tag.active {
-  background: linear-gradient(
-    135deg,
-    rgba(161, 132, 36, 0.84),
-    rgba(200, 170, 60, 0.92)
-  );
-  border-color: rgba(255, 236, 162, 0.2);
-  color: #fff6cf;
+.tags-list .tag:nth-child(6n + 1),
+.tags-list .tag.active:nth-child(6n + 1) {
+  border: 1px solid rgba(255, 182, 103, 0.38);
+  background: rgba(85, 58, 38, 0.62);
+  color: #ffcf9a;
+}
+
+.tags-list .tag:nth-child(6n + 2),
+.tags-list .tag.active:nth-child(6n + 2) {
+  border: 1px solid rgba(255, 145, 201, 0.38);
+  background: rgba(82, 42, 68, 0.58);
+  color: #ffc8e4;
+}
+
+.tags-list .tag:nth-child(6n + 3),
+.tags-list .tag.active:nth-child(6n + 3) {
+  border: 1px solid rgba(171, 160, 255, 0.42);
+  background: rgba(52, 48, 98, 0.62);
+  color: #e2dcff;
+}
+
+.tags-list .tag:nth-child(6n + 4),
+.tags-list .tag.active:nth-child(6n + 4) {
+  border: 1px solid rgba(120, 209, 255, 0.4);
+  background: rgba(36, 72, 98, 0.58);
+  color: #bfe9ff;
+}
+
+.tags-list .tag:nth-child(6n + 5),
+.tags-list .tag.active:nth-child(6n + 5) {
+  border: 1px solid rgba(132, 255, 192, 0.38);
+  background: rgba(38, 78, 68, 0.56);
+  color: #c4ffe8;
+}
+
+.tags-list .tag:nth-child(6n + 6),
+.tags-list .tag.active:nth-child(6n + 6) {
+  border: 1px solid rgba(226, 145, 255, 0.4);
+  background: rgba(68, 42, 88, 0.58);
+  color: #f0d4ff;
 }
 
 .full-history-section {

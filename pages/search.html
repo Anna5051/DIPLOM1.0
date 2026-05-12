@@ -10,20 +10,25 @@
 </head>
 <body>
   <header class="search-topbar">
-    <div class="topbar-left">
-      <a href="/pages/main.html" class="brand">Charitor.ai</a>
-    </div>
+    <a href="/pages/main.html" class="brand">Charitor.ai</a>
 
     <form class="top-search" id="topSearchForm">
       <input
-        type="text"
+        type="search"
         id="globalSearchInput"
-        placeholder="Поиск персонажей, авторов, тегов..."
+        name="q"
+        autocomplete="off"
+        placeholder="Поиск персонажей…"
       />
-      <button type="submit">⌕</button>
+      <button type="submit" aria-label="Найти">⌕</button>
     </form>
 
     <div class="topbar-right">
+      <a href="/pages/history.html" class="top-icon" aria-label="Чаты">
+        <svg class="topbar-icon-svg" viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M4 4h12v9H7l-3 3V4zm14 0h2v12h-6v-2h4V4z" />
+        </svg>
+      </a>
       <a href="./profile.html" class="profile-mini">
         <img id="topAvatar" src="../img/icon.svg" alt="avatar" />
       </a>
@@ -33,7 +38,6 @@
   <main class="search-page">
     <section class="tags-panel">
       <div class="tags-strip">
-        <button type="button" class="tags-icon-btn" id="clearTagsBtn" aria-label="Сбросить теги">×</button>
         <div class="tag-cloud" id="tagCloud">
           <button class="tag-chip" data-tag="all">Все</button>
           <button class="tag-chip" data-tag="romance">Романтика</button>
@@ -71,22 +75,12 @@
           <button class="tag-chip" data-tag="beginning">Для новичков</button>
           <button class="tag-chip" data-tag="music">Музыкальные</button>
         </div>
-        <button type="button" class="tags-icon-btn" id="toggleTagsBtn" aria-label="Свернуть панель">▴</button>
       </div>
     </section>
 
     <section class="search-layout">
       <aside class="filters-card">
         <h2>Фильтры</h2>
-
-        <div class="filter-group">
-          <div class="filter-title">Доступность</div>
-          <label class="filter-check">
-            <input type="checkbox" id="only16" />
-            <span></span>
-            Только 16+
-          </label>
-        </div>
 
         <div class="filter-group">
           <div class="filter-title">Сортировка</div>
@@ -99,23 +93,9 @@
         </div>
 
         <div class="filter-group">
-          <div class="filter-title">Сообщения</div>
-          <input id="messagesMin" type="number" min="0" class="filter-input" placeholder="Не меньше" />
-        </div>
-
-        <div class="filter-group">
-          <div class="filter-title">Токены</div>
-          <input id="tokensMin" type="number" min="0" class="filter-input" placeholder="Не меньше" />
-        </div>
-
-        <div class="filter-group">
           <div class="filter-title">Исключить теги</div>
-          <input
-            id="excludeTagsInput"
-            type="text"
-            class="filter-input"
-            placeholder="через запятую: романтика, драма"
-          />
+          <p class="filter-hint">Нажми тег — персонажи с таким тегом не показываются. Повторный клик снимает исключение.</p>
+          <div class="exclude-tag-cloud" id="excludeTagCloud" aria-label="Теги для исключения"></div>
           <div class="excluded-tags-preview" id="excludedTagsPreview"></div>
         </div>
 
@@ -132,7 +112,6 @@
           </div>
           <div class="quick-filters" id="quickFilters">
             <button type="button" class="quick-chip active" data-quick="all">Все</button>
-            <button type="button" class="quick-chip" data-quick="limited">Только 16+</button>
             <button type="button" class="quick-chip" data-quick="favorites">Избранные</button>
           </div>
         </div>
@@ -146,6 +125,24 @@
     </section>
   </main>
 
+  <footer class="app-doc-footer" role="contentinfo">
+    <nav class="app-doc-footer-nav" aria-label="Документы и справка">
+      <a href="/pages/docs/guide.html">Справка и инструкция</a>
+      <span class="app-doc-footer-sep" aria-hidden="true">·</span>
+      <a href="/pages/docs/rules.html">Правила сообщества</a>
+      <span class="app-doc-footer-sep" aria-hidden="true">·</span>
+      <a href="/pages/docs/faq.html">FAQ</a>
+      <span class="app-doc-footer-sep" aria-hidden="true">·</span>
+      <a href="/pages/docs/privacy.html">Конфиденциальность</a>
+      <span class="app-doc-footer-sep" aria-hidden="true">·</span>
+      <a href="/pages/docs/cookies.html">Cookie</a>
+      <span class="app-doc-footer-sep" aria-hidden="true">·</span>
+      <a href="/pages/docs/about.html">О сервисе</a>
+      <span class="app-doc-footer-sep" aria-hidden="true">·</span>
+      <a href="/pages/docs/news.html">Новости</a>
+    </nav>
+  </footer>
+
   <script>
     const brandLink = document.querySelector(".brand");
     if (brandLink) {
@@ -158,20 +155,15 @@
     const globalSearchInput = document.getElementById("globalSearchInput");
     const topSearchForm = document.getElementById("topSearchForm");
     const tagCloud = document.getElementById("tagCloud");
+    const excludeTagCloud = document.getElementById("excludeTagCloud");
     const resetFiltersBtn = document.getElementById("resetFiltersBtn");
     const charactersGrid = document.getElementById("charactersGrid");
     const foundText = document.getElementById("foundText");
     const statusBox = document.getElementById("statusBox");
     const topAvatar = document.getElementById("topAvatar");
-    const only16 = document.getElementById("only16");
     const sortSelect = document.getElementById("sortSelect");
-    const messagesMin = document.getElementById("messagesMin");
-    const tokensMin = document.getElementById("tokensMin");
-    const excludeTagsInput = document.getElementById("excludeTagsInput");
     const excludedTagsPreview = document.getElementById("excludedTagsPreview");
     const quickFilters = document.getElementById("quickFilters");
-    const clearTagsBtn = document.getElementById("clearTagsBtn");
-    const toggleTagsBtn = document.getElementById("toggleTagsBtn");
 
     let allBots = [];
     const API_BASE_SEARCH = "http://localhost:3000";
@@ -179,15 +171,32 @@
     let activeTags = new Set();
     let isAllTagsSelected = false;
     let quickFilter = "all";
-    let isTagsCollapsed = false;
     let excludedTags = [];
     const EXCLUDED_TAGS_STORAGE_KEY = `excludedSearchTags_${savedUser?.id || "guest"}`;
     const FORBIDDEN_TAGS = new Set([
       "18+",
       "16+",
+      "18_",
+      "16_",
+      "18plus",
+      "16plus",
+      "18_plus",
+      "18_+",
+      "16_+",
+      "r18",
       "mature",
       "adult",
       "nsfw",
+      "porn",
+      "porno",
+      "порно",
+      "sex",
+      "секс",
+      "xxx",
+      "bdsm",
+      "эротика",
+      "hentai",
+      "хентай",
       "wlw",
       "mlm",
       "poly",
@@ -218,6 +227,34 @@
       return String(value || "").toLowerCase().trim();
     }
 
+    /** Как в config/tagPolicy.js — для скрытия меток на карточках */
+    function normalizeTagKeySearch(raw) {
+      return String(raw ?? "")
+        .trim()
+        .normalize("NFKC")
+        .replace(/^#+/g, "")
+        .replace(/\+/g, "_")
+        .replace(/,/g, "_")
+        .replace(/\s+/g, "_")
+        .replace(/_+/g, "_")
+        .toLowerCase();
+    }
+
+    function isForbiddenTagSearch(key) {
+      const k = normalizeTagKeySearch(key);
+      if (!k || k === "all") return true;
+      if (FORBIDDEN_TAGS.has(k)) return true;
+      const parts = k.split("_").filter(Boolean);
+      for (const part of parts) {
+        if (FORBIDDEN_TAGS.has(part)) return true;
+      }
+      for (let i = 0; i < parts.length - 1; i += 1) {
+        if (parts[i] === "18" && parts[i + 1] === "plus") return true;
+        if (parts[i] === "16" && parts[i + 1] === "plus") return true;
+      }
+      return false;
+    }
+
     function parseExcludedTagsInput(value) {
       return String(value || "")
         .split(",")
@@ -234,10 +271,42 @@
         return;
       }
       excludedTags.forEach((tag) => {
-        const chip = document.createElement("span");
-        chip.className = "excluded-tag-chip";
-        chip.textContent = translateTag(tag);
-        excludedTagsPreview.appendChild(chip);
+        const btn = document.createElement("button");
+        btn.type = "button";
+        btn.className = "excluded-tag-chip";
+        btn.dataset.tag = tag;
+        btn.textContent = `${translateTag(tag)} ×`;
+        btn.addEventListener("click", () => {
+          excludedTags = excludedTags.filter((t) => t !== tag);
+          saveExcludedTags();
+          syncExcludeTagUI();
+          applyFilters();
+        });
+        excludedTagsPreview.appendChild(btn);
+      });
+    }
+
+    function buildExcludeTagCloud() {
+      if (!excludeTagCloud || !tagCloud) return;
+      excludeTagCloud.innerHTML = "";
+      tagCloud.querySelectorAll('.tag-chip[data-tag]:not([data-tag="all"])').forEach((source) => {
+        const tag = source.dataset.tag;
+        if (!tag) return;
+        const btn = document.createElement("button");
+        btn.type = "button";
+        btn.className = "tag-chip tag-chip--exclude";
+        btn.dataset.tag = tag;
+        btn.textContent = source.textContent.trim();
+        excludeTagCloud.appendChild(btn);
+      });
+      syncExcludeTagUI();
+    }
+
+    function syncExcludeTagUI() {
+      if (!excludeTagCloud) return;
+      excludeTagCloud.querySelectorAll(".tag-chip--exclude").forEach((btn) => {
+        const t = btn.dataset.tag;
+        btn.classList.toggle("is-excluded", excludedTags.includes(t));
       });
     }
 
@@ -248,12 +317,13 @@
       } catch {
         excludedTags = [];
       }
-      excludeTagsInput.value = excludedTags.join(", ");
+      syncExcludeTagUI();
       syncExcludedTagsPreview();
     }
 
     function saveExcludedTags() {
       localStorage.setItem(EXCLUDED_TAGS_STORAGE_KEY, excludedTags.join(","));
+      syncExcludeTagUI();
       syncExcludedTagsPreview();
     }
 
@@ -437,7 +507,7 @@
         .split(",")
         .map((tag) => tag.trim())
         .filter(Boolean)
-        .filter((tag) => !FORBIDDEN_TAGS.has(normalizeText(tag)))
+        .filter((tag) => !isForbiddenTagSearch(tag))
         .slice(0, 4);
     }
 
@@ -448,6 +518,7 @@
         drama: "Драма",
         rp: "Ролевые сценарии",
         dark: "Тёмные сюжеты",
+        dark_fantasy: "Тёмное фэнтези",
         fantasy: "Фэнтези",
         anime: "Аниме",
         adventure: "Приключения",
@@ -532,9 +603,18 @@
         const storyDescription = getStoryText(bot);
 
         card.innerHTML = `
-          <a href="${getBotUrl(bot)}" class="character-image">
-            <img src="${getAvatar(bot)}" alt="${escapeHtml(bot.name)}" />
-          </a>
+          <div class="character-image-wrap">
+            <a href="${getBotUrl(bot)}" class="character-image">
+              <img src="${getAvatar(bot)}" alt="${escapeHtml(bot.name)}" />
+            </a>
+            <button
+              type="button"
+              class="heart favorite-heart-btn ${isFavoriteBot(bot.id) ? "active" : ""}"
+              data-bot-id="${bot.id}"
+              aria-label="Избранное"
+              ${savedUser?.id ? "" : "disabled"}
+            >❤</button>
+          </div>
 
           <div class="character-body">
             <div class="character-title-row">
@@ -547,13 +627,6 @@
                   ${escapeHtml(storyDescription || "Сюжет пока не добавлен")}
                 </p>
               </div>
-              <button
-                type="button"
-                class="heart favorite-heart-btn ${isFavoriteBot(bot.id) ? "active" : ""}"
-                data-bot-id="${bot.id}"
-                aria-label="Избранное"
-                ${savedUser?.id ? "" : "disabled"}
-              >❤</button>
             </div>
 
             <div class="character-tags">
@@ -601,10 +674,8 @@
     }
 
     function applyFilters() {
-      const query = normalizeText(globalSearchInput.value);
+      const query = globalSearchInput ? normalizeText(globalSearchInput.value) : "";
       const sort = sortSelect.value;
-      const minMessages = Number(messagesMin.value) || 0;
-      const minTokens = Number(tokensMin.value) || 0;
 
       let filtered = [...allBots];
 
@@ -641,39 +712,9 @@
         });
       }
 
-      if (only16.checked) {
-        filtered = filtered.filter((bot) => {
-          const haystack = normalizeText(`${bot.tags} ${bot.short_description} ${bot.full_description}`);
-          return (
-            haystack.includes("16+") ||
-            haystack.includes("18+") ||
-            haystack.includes("adult") ||
-            haystack.includes("nsfw") ||
-            haystack.includes("романтика") ||
-            haystack.includes("драма") ||
-            haystack.includes("rp")
-          );
-        });
-      }
-
       if (quickFilter === "favorites") {
         filtered = filtered.filter((bot) => isFavoriteBot(bot.id));
       }
-
-      if (quickFilter === "limited") {
-        filtered = filtered.filter((bot) => {
-          const haystack = normalizeText(`${bot.tags} ${bot.short_description} ${bot.full_description}`);
-          return (
-            haystack.includes("16+") ||
-            haystack.includes("18+") ||
-            haystack.includes("adult") ||
-            haystack.includes("nsfw")
-          );
-        });
-      }
-
-      filtered = filtered.filter((bot) => Number(bot.messages_count || 0) >= minMessages);
-      filtered = filtered.filter((bot) => Number(bot.tokens_count || 0) >= minTokens);
 
       if (sort === "name") {
         filtered.sort((a, b) =>
@@ -758,12 +799,16 @@
       }
     }
 
-    topSearchForm.addEventListener("submit", (e) => {
-      e.preventDefault();
-      applyFilters();
-    });
+    if (topSearchForm) {
+      topSearchForm.addEventListener("submit", (e) => {
+        e.preventDefault();
+        applyFilters();
+      });
+    }
 
-    globalSearchInput.addEventListener("input", applyFilters);
+    if (globalSearchInput) {
+      globalSearchInput.addEventListener("input", applyFilters);
+    }
 
     tagCloud.addEventListener("click", (e) => {
       const chip = e.target.closest(".tag-chip");
@@ -788,35 +833,52 @@
         activeTags.delete(selectedTag);
       } else {
         activeTags.add(selectedTag);
+        excludedTags = excludedTags.filter((t) => t !== selectedTag);
+        saveExcludedTags();
       }
 
       syncActiveTagUI();
+      syncExcludeTagUI();
+      applyFilters();
+    });
+
+    excludeTagCloud.addEventListener("click", (e) => {
+      const chip = e.target.closest(".tag-chip--exclude");
+      if (!chip) return;
+      const tag = chip.dataset.tag;
+      if (!tag) return;
+
+      const idx = excludedTags.indexOf(tag);
+      if (idx >= 0) {
+        excludedTags.splice(idx, 1);
+      } else {
+        excludedTags.push(tag);
+        excludedTags = excludedTags.filter((t, i, arr) => arr.indexOf(t) === i);
+        activeTags.delete(tag);
+        if (activeTags.size === 0) {
+          isAllTagsSelected = false;
+        }
+        syncActiveTagUI();
+      }
+
+      saveExcludedTags();
       applyFilters();
     });
 
     sortSelect.addEventListener("change", applyFilters);
-    only16.addEventListener("change", applyFilters);
-    messagesMin.addEventListener("input", applyFilters);
-    tokensMin.addEventListener("input", applyFilters);
-    excludeTagsInput.addEventListener("input", () => {
-      excludedTags = parseExcludedTagsInput(excludeTagsInput.value);
-      saveExcludedTags();
-      applyFilters();
-    });
 
     resetFiltersBtn.addEventListener("click", () => {
-      globalSearchInput.value = "";
+      if (globalSearchInput) {
+        globalSearchInput.value = "";
+      }
       activeTags = new Set();
       isAllTagsSelected = false;
       quickFilter = "all";
-      only16.checked = false;
       sortSelect.value = "popular";
-      messagesMin.value = "";
-      tokensMin.value = "";
       excludedTags = [];
-      excludeTagsInput.value = "";
       saveExcludedTags();
       syncActiveTagUI();
+      syncExcludeTagUI();
       quickFilters.querySelectorAll(".quick-chip").forEach((chip) => {
         chip.classList.toggle("active", chip.dataset.quick === "all");
       });
@@ -834,23 +896,7 @@
       applyFilters();
     });
 
-    clearTagsBtn.addEventListener("click", () => {
-      activeTags = new Set();
-      isAllTagsSelected = false;
-      syncActiveTagUI();
-      applyFilters();
-    });
-
-    toggleTagsBtn.addEventListener("click", () => {
-      isTagsCollapsed = !isTagsCollapsed;
-      tagCloud.classList.toggle("collapsed", isTagsCollapsed);
-      toggleTagsBtn.textContent = isTagsCollapsed ? "▾" : "▴";
-      toggleTagsBtn.setAttribute(
-        "aria-label",
-        isTagsCollapsed ? "Показать все теги" : "Показать первый ряд"
-      );
-    });
-
+    buildExcludeTagCloud();
     syncActiveTagUI();
     loadExcludedTags();
     loadBots();
